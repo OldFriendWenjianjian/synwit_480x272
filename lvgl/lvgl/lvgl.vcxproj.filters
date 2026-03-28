@@ -1,0 +1,742 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{942307d6-67aa-4299-b6f5-1d6acdf35397}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_core">
+      <UniqueIdentifier>{225a6357-ed6f-4840-9c49-baf6663f5a8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_draw">
+      <UniqueIdentifier>{9e38312a-c852-4cec-b969-043486f3769b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_font">
+      <UniqueIdentifier>{1f550f58-cc29-442f-bd78-4f8637b6c0d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_gpu">
+      <UniqueIdentifier>{f60ca4b7-67ce-47d0-9bbf-53dcd3ba2385}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_hal">
+      <UniqueIdentifier>{e758f365-bfc3-4dfa-ab00-795e1b550d47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_misc">
+      <UniqueIdentifier>{9dce8622-3fcb-42f8-9fc9-a7e62de198fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_themes">
+      <UniqueIdentifier>{fb72d444-fca2-4a44-8a74-9140de8cfe9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_widgets">
+      <UniqueIdentifier>{6b8d545a-8f98-4b30-8696-7bcc106dff1d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_fs_if">
+      <UniqueIdentifier>{ac6b56af-b7f9-41c5-87e3-dc2a31453deb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_extra">
+      <UniqueIdentifier>{026f245b-7012-46b4-82e2-3a3fdb3b0fd3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_extra\sjpg">
+      <UniqueIdentifier>{6fa09a83-2f2b-42f0-8536-9e250e1ed342}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_extra\freetype">
+      <UniqueIdentifier>{97bfb1f4-6b2e-449a-a337-3040d88cb373}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_extra\png">
+      <UniqueIdentifier>{34603283-2fa9-4c69-ae8c-c964da00c333}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lv_extra\bmp">
+      <UniqueIdentifier>{674c6089-e70b-466d-a44d-e029a1f605c4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\lv_api_map.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_conf_internal.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_conf_kconfig.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lvgl.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="lv_conf_template.h" />
+    <ClInclude Include="lvgl.h" />
+    <ClInclude Include="src\lv_core\lv_disp.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_core\lv_group.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_core\lv_indev.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_core\lv_obj.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_core\lv_obj_style_dec.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_core\lv_refr.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_core\lv_style.h">
+      <Filter>src\lv_core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_arc.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_blend.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_img.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_label.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_line.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_mask.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_rect.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_draw_triangle.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_img_buf.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_img_cache.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_draw\lv_img_decoder.h">
+      <Filter>src\lv_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_font\lv_font.h">
+      <Filter>src\lv_font</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_font\lv_font_fmt_txt.h">
+      <Filter>src\lv_font</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_font\lv_font_loader.h">
+      <Filter>src\lv_font</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_font\lv_symbol_def.h">
+      <Filter>src\lv_font</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_gpu\lv_gpu_nxp_pxp.h">
+      <Filter>src\lv_gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_gpu\lv_gpu_nxp_pxp_osa.h">
+      <Filter>src\lv_gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_gpu\lv_gpu_nxp_vglite.h">
+      <Filter>src\lv_gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_gpu\lv_gpu_stm32_dma2d.h">
+      <Filter>src\lv_gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_gpu\lv_gpu_swm341_dma2d.h">
+      <Filter>src\lv_gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_hal\lv_hal.h">
+      <Filter>src\lv_hal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_hal\lv_hal_disp.h">
+      <Filter>src\lv_hal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_hal\lv_hal_indev.h">
+      <Filter>src\lv_hal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_hal\lv_hal_tick.h">
+      <Filter>src\lv_hal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_anim.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_area.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_async.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_bidi.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_color.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_debug.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_fs.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_gc.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_ll.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_log.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_math.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_mem.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_printf.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_task.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_templ.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_txt.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_txt_ap.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_types.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_misc\lv_utils.h">
+      <Filter>src\lv_misc</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_themes\lv_theme.h">
+      <Filter>src\lv_themes</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_themes\lv_theme_empty.h">
+      <Filter>src\lv_themes</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_themes\lv_theme_material.h">
+      <Filter>src\lv_themes</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_themes\lv_theme_mono.h">
+      <Filter>src\lv_themes</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_themes\lv_theme_template.h">
+      <Filter>src\lv_themes</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_arc.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_bar.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_btn.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_btnmatrix.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_calendar.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_canvas.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_chart.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_checkbox.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_cont.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_cpicker.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_dropdown.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_gauge.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_img.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_imgbtn.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_keyboard.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_label.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_led.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_line.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_linemeter.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_list.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_msgbox.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_objmask.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_objx_templ.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_page.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_roller.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_slider.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_spinbox.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_spinner.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_switch.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_table.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_tabview.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_textarea.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_tileview.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_widgets\lv_win.h">
+      <Filter>src\lv_widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_fs_if\lv_fs_if.h">
+      <Filter>src\lv_fs_if</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_extra\libs\sjpg\lv_sjpg.h">
+      <Filter>src\lv_extra\sjpg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_extra\libs\sjpg\tjpgd.h">
+      <Filter>src\lv_extra\sjpg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_extra\libs\sjpg\tjpgdcnf.h">
+      <Filter>src\lv_extra\sjpg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_extra\libs\png\lodepng.h">
+      <Filter>src\lv_extra\png</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_extra\libs\png\lv_png.h">
+      <Filter>src\lv_extra\png</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lv_extra\libs\bmp\lv_bmp.h">
+      <Filter>src\lv_extra\bmp</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\lv_core\lv_disp.c">
+      <Filter>src\lv_core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_core\lv_group.c">
+      <Filter>src\lv_core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_core\lv_indev.c">
+      <Filter>src\lv_core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_core\lv_obj.c">
+      <Filter>src\lv_core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_core\lv_refr.c">
+      <Filter>src\lv_core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_core\lv_style.c">
+      <Filter>src\lv_core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_arc.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_blend.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_img.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_label.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_line.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_mask.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_rect.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_draw_triangle.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_img_buf.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_img_cache.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_draw\lv_img_decoder.c">
+      <Filter>src\lv_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_dejavu_16_persian_hebrew.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_fmt_txt.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_loader.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_8.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_10.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_12.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_12_subpx.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_14.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_16.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_18.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_20.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_22.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_24.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_26.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_28.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_28_compressed.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_30.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_32.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_34.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_36.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_38.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_40.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_42.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_44.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_46.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_montserrat_48.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_simsun_16_cjk.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_unscii_8.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_font\lv_font_unscii_16.c">
+      <Filter>src\lv_font</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_gpu\lv_gpu_nxp_pxp.c">
+      <Filter>src\lv_gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_gpu\lv_gpu_nxp_pxp_osa.c">
+      <Filter>src\lv_gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_gpu\lv_gpu_nxp_vglite.c">
+      <Filter>src\lv_gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_gpu\lv_gpu_stm32_dma2d.c">
+      <Filter>src\lv_gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_gpu\lv_gpu_swm341_dma2d.c">
+      <Filter>src\lv_gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_hal\lv_hal_disp.c">
+      <Filter>src\lv_hal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_hal\lv_hal_indev.c">
+      <Filter>src\lv_hal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_hal\lv_hal_tick.c">
+      <Filter>src\lv_hal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_anim.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_area.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_async.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_bidi.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_color.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_debug.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_fs.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_gc.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_ll.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_log.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_math.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_mem.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_printf.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_task.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_templ.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_txt.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_txt_ap.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_misc\lv_utils.c">
+      <Filter>src\lv_misc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_themes\lv_theme.c">
+      <Filter>src\lv_themes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_themes\lv_theme_empty.c">
+      <Filter>src\lv_themes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_themes\lv_theme_material.c">
+      <Filter>src\lv_themes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_themes\lv_theme_mono.c">
+      <Filter>src\lv_themes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_themes\lv_theme_template.c">
+      <Filter>src\lv_themes</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_arc.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_bar.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_btn.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_btnmatrix.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_calendar.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_canvas.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_chart.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_checkbox.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_cont.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_cpicker.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_dropdown.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_gauge.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_img.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_imgbtn.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_keyboard.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_label.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_led.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_line.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_linemeter.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_list.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_msgbox.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_objmask.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_objx_templ.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_page.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_roller.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_slider.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_spinbox.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_spinner.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_switch.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_table.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_tabview.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_textarea.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_widgets\lv_win.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_fs_if\lv_fs_if.c">
+      <Filter>src\lv_fs_if</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_fs_if\lv_fs_pc.c">
+      <Filter>src\lv_fs_if</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_extra\libs\sjpg\lv_sjpg.c">
+      <Filter>src\lv_extra\sjpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_extra\libs\sjpg\tjpgd.c">
+      <Filter>src\lv_extra\sjpg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\framework\lv_custom\lv_widgets\lv_tileview.c">
+      <Filter>src\lv_widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_extra\libs\png\lodepng.c">
+      <Filter>src\lv_extra\png</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_extra\libs\png\lv_png.c">
+      <Filter>src\lv_extra\png</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lv_extra\libs\bmp\lv_bmp.c">
+      <Filter>src\lv_extra\bmp</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\lv_core\lv_core.mk">
+      <Filter>src\lv_core</Filter>
+    </None>
+    <None Include="src\lv_draw\lv_draw.mk">
+      <Filter>src\lv_draw</Filter>
+    </None>
+    <None Include="src\lv_font\lv_font.mk">
+      <Filter>src\lv_font</Filter>
+    </None>
+    <None Include="src\lv_gpu\lv_gpu.mk">
+      <Filter>src\lv_gpu</Filter>
+    </None>
+    <None Include="src\lv_hal\lv_hal.mk">
+      <Filter>src\lv_hal</Filter>
+    </None>
+    <None Include="src\lv_misc\lv_misc.mk">
+      <Filter>src\lv_misc</Filter>
+    </None>
+    <None Include="src\lv_themes\lv_themes.mk">
+      <Filter>src\lv_themes</Filter>
+    </None>
+    <None Include="src\lv_widgets\lv_widgets.mk">
+      <Filter>src\lv_widgets</Filter>
+    </None>
+  </ItemGroup>
+</Project>

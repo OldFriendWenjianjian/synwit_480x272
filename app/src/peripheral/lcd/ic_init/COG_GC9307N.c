@@ -1,0 +1,275 @@
+
+static uint16_t LCD_HDOT; // 水平点数
+static uint16_t LCD_VDOT; // 垂直点数
+
+#define LCD_DIR 			( 0 ) //设置屏幕显示方向
+
+//----------------------------MPU-LCD 接口函数定义----------------------------//
+static void GC9307N_SetDirection(uint8_t direction)
+{
+    LCD_WR_REG(LCD, 0x36);
+    /* Memory Access Control (36h)
+     * This command defines read/write scanning direction of the frame memory.
+     *
+     * These 3 bits control the direction from the MPU to memory write/read.
+     *
+     * Bit  Symbol  Name  Description
+     * D7   MY  Row Address Order     -- 以X轴镜像
+     * D6   MX  Column Address Order  -- 以Y轴镜像
+     * D5   MV  Row/Column Exchange   -- X轴与Y轴交换
+     * D4   ML  Vertical Refresh Order  LCD vertical refresh direction control.
+     *
+     * D3   BGR RGB-BGR Order   Color selector switch control
+     *      (0 = RGB color filter panel, 1 = BGR color filter panel )
+     * D2   MH  Horizontal Refresh ORDER  LCD horizontal refreshing direction control.
+     * D1   X   Reserved  Reserved
+     * D0   X   Reserved  Reserved
+     */
+    uint8_t h4 = 0, l4 = 0x08; /* 有些屏内部接线 R 与 B 是对调的, 有些则不是, 详询屏幕供应商 */
+    switch (direction)
+    {
+    default : //break;
+    case 0:
+        h4 = 0;
+        break;
+    case 1:
+        h4 = 1 << 1;
+        break;
+    case 2:
+        h4 = 1 << 2;
+        break;
+    case 3:
+        h4 = 1 << 3;
+        break;
+    
+    case 4:
+        h4 = (1 << 1) | (1 << 2);
+        break;
+    case 5:
+        h4 = (1 << 1) | (1 << 3);
+        break;
+    case 6:
+        h4 = (1 << 2) | (1 << 3);
+        break;
+    case 7:
+        h4 = (1 << 1) | (1 << 2) | (1 << 3);
+        break;
+    }
+    LCD_WR_DATA(LCD, (h4 << 4) | l4);
+}
+
+/****************************************************************************************************************************************** 
+* 函数名称:	mpu_lcd_init()
+* 功能说明: TFT液晶屏初始化，TFT使用GC9307N驱动，分辨率320*240，
+*			屏幕模式：竖屏，从左到右、从上到下
+* 输    入: 无
+* 输    出: 无
+* 注意事项: 无
+******************************************************************************************************************************************/
+void GC9307N_Init(void)
+{
+	uint32_t id[4];
+/*
+	id = LCD_ReadReg(LCD, 0XDA00) << 16;
+	id |= LCD_ReadReg(LCD, 0XDB00) << 8;
+	id |= LCD_ReadReg(LCD, 0XDC00);
+	if(id != 0x008000) return;
+
+	//LCD_WR_REG(0XD4);
+	id[0]=LCD_ReadReg(LCD,0xDA);//读回0X01
+	id[1]=LCD_ReadReg(LCD,0xDB);//读回0X53
+	id[2]=LCD_ReadReg(LCD,0xDC);//读回0X53
+	//id[3]=LCD_RD_DATA();//读回0X53
+*/
+	/**/
+	LCD->MPUIR = 0xD3;
+	while (LCD_IsBusy(LCD))
+		__NOP();
+
+	id[0] = LCD->MPUDR;
+	while (LCD_IsBusy(LCD))
+		__NOP();
+
+	id[1] = LCD->MPUDR;
+	while (LCD_IsBusy(LCD))
+		__NOP();
+
+	id[2] = LCD->MPUDR;
+	while (LCD_IsBusy(LCD))
+		__NOP();
+
+	id[3] = LCD->MPUDR;
+	while (LCD_IsBusy(LCD))
+		__NOP();
+	
+	//printf("\r\nMPU_LCD ID = 0x[%x%x%x%x]\r\n", id[0], id[1], id[2], id[3]);
+	
+#if 	1//为了观看时更好地缩进而使用，不可取消置 0
+	/* Sleep Out (11h) */
+	LCD_WR_REG(LCD,0x11);
+	swm_delay_ms(120);
+
+	LCD_WR_REG(LCD,0x36);     
+	LCD_WR_DATA(LCD,0x00);   
+
+	LCD_WR_REG(LCD,0x3A);     
+	LCD_WR_DATA(LCD,0x05);   
+
+	LCD_WR_REG(LCD,0xB2);     
+	LCD_WR_DATA(LCD,0x0C);   
+	LCD_WR_DATA(LCD,0x0C);   
+	LCD_WR_DATA(LCD,0x00);   
+	LCD_WR_DATA(LCD,0x33);   
+	LCD_WR_DATA(LCD,0x33);   
+
+	LCD_WR_REG(LCD,0xB7);     
+	LCD_WR_DATA(LCD,0x46);   //VGH=13.65V,VGL=-11.38V
+
+	LCD_WR_REG(LCD,0xBB);     
+	LCD_WR_DATA(LCD,0x1B);   
+
+	LCD_WR_REG(LCD,0xC0);     
+	LCD_WR_DATA(LCD,0x2C);   
+
+	LCD_WR_REG(LCD,0xC2);     
+	LCD_WR_DATA(LCD,0x01);   
+
+	LCD_WR_REG(LCD,0xC3);     
+	LCD_WR_DATA(LCD,0x0F);   
+
+	LCD_WR_REG(LCD,0xC4);     
+	LCD_WR_DATA(LCD,0x20);   
+
+	LCD_WR_REG(LCD,0xC6);     
+	LCD_WR_DATA(LCD,0x0F);   
+
+	LCD_WR_REG(LCD,0xD0);     
+	LCD_WR_DATA(LCD,0xA4);   
+	LCD_WR_DATA(LCD,0xA1);   
+
+	LCD_WR_REG(LCD,0xD6);     
+	LCD_WR_DATA(LCD,0xA1); 
+
+	LCD_WR_REG(LCD,0xE0);
+	LCD_WR_DATA(LCD,0xF0);
+	LCD_WR_DATA(LCD,0x00);
+	LCD_WR_DATA(LCD,0x06);
+	LCD_WR_DATA(LCD,0x04);
+	LCD_WR_DATA(LCD,0x05);
+	LCD_WR_DATA(LCD,0x05);
+	LCD_WR_DATA(LCD,0x31);
+	LCD_WR_DATA(LCD,0x44);
+	LCD_WR_DATA(LCD,0x48);
+	LCD_WR_DATA(LCD,0x36);
+	LCD_WR_DATA(LCD,0x12);
+	LCD_WR_DATA(LCD,0x12);
+	LCD_WR_DATA(LCD,0x2B);
+	LCD_WR_DATA(LCD,0x34);
+
+	LCD_WR_REG(LCD,0xE1);
+	LCD_WR_DATA(LCD,0xF0);
+	LCD_WR_DATA(LCD,0x0B);
+	LCD_WR_DATA(LCD,0x0F);
+	LCD_WR_DATA(LCD,0x0F);
+	LCD_WR_DATA(LCD,0x0D);
+	LCD_WR_DATA(LCD,0x26);
+	LCD_WR_DATA(LCD,0x31);
+	LCD_WR_DATA(LCD,0x43);
+	LCD_WR_DATA(LCD,0x47);
+	LCD_WR_DATA(LCD,0x38);
+	LCD_WR_DATA(LCD,0x14);
+	LCD_WR_DATA(LCD,0x14);
+	LCD_WR_DATA(LCD,0x2C);
+	LCD_WR_DATA(LCD,0x32);
+
+	LCD_WR_REG(LCD,0x21);  
+
+	LCD_WR_REG(LCD,0x29);     
+
+	LCD_WR_REG(LCD,0x2C);	
+	
+	/* Interface Pixel Format (3Ah) */
+	LCD_WR_REG(LCD,0x3A);
+	LCD_WR_DATA(LCD,0x55); /* 0x55 : 16 bits/pixel  */
+
+	/* Display On */
+	LCD_WR_REG(LCD,0x29);
+#endif
+}
+
+/****************************************************************************************************************************************** 
+* 函数名称: mpu_lcd_setcursor()
+* 功能说明: 
+* 输    入: 
+* 输    出: 
+* 注意事项: 
+******************************************************************************************************************************************/
+void GC9307N_SetCursor(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye)
+{
+	LCD_WR_REG(LCD, 0x2A);
+	LCD_WR_DATA(LCD, xs >> 8);//xs
+	LCD_WR_DATA(LCD, xs & 0xFF);
+	LCD_WR_DATA(LCD, xe >> 8);//xe
+	LCD_WR_DATA(LCD, xe & 0xFF);
+
+	LCD_WR_REG(LCD, 0x2B);
+	LCD_WR_DATA(LCD, ys >> 8);//ys
+	LCD_WR_DATA(LCD, ys & 0xFF);
+	LCD_WR_DATA(LCD, ye >> 8);//ye
+	LCD_WR_DATA(LCD, ye & 0xFF);
+
+	LCD_WR_REG(LCD, 0x2C); //display on
+}
+
+/****************************************************************************************************************************************** 
+* 函数名称: mpu_lcd_drawpoint()
+* 功能说明: 
+* 输    入: 
+* 输    出: 
+* 注意事项: 
+******************************************************************************************************************************************/
+void GC9307N_DrawPoint(uint16_t x, uint16_t y, uint16_t rgb)
+{
+	GC9307N_SetCursor(x, x, y, y);
+
+	LCD_WR_DATA(LCD, rgb);
+}
+
+/****************************************************************************************************************************************** 
+* 函数名称: mpu_lcd_clear()
+* 功能说明: 
+* 输    入: 
+* 输    出: 
+* 注意事项: 
+******************************************************************************************************************************************/
+void GC9307N_Clear(uint16_t rgb)
+{
+	uint32_t i = 0, j = 0;
+
+	GC9307N_SetCursor(0, LCD_HDOT, 0, LCD_VDOT);
+	
+	for (i = 0; i < LCD_VDOT; i++)
+	{
+		for (j = 0; j < LCD_HDOT; j++)
+		{
+			LCD_WR_DATA(LCD, rgb);
+		}
+	}
+}
+
+/****************************************************************************************************************************************** 
+* 函数名称: mpu_lcd_dmaclear()
+* 功能说明: 
+* 输    入: 
+* 输    出: 
+* 注意事项: 
+******************************************************************************************************************************************/
+void GC9307N_DMA_Clear(uint32_t *data)
+{
+	GC9307N_SetCursor(0, LCD_HDOT, 0, LCD_VDOT);
+
+	MPULCD_DMAStart(LCD, data, LCD_HDOT, LCD_VDOT);
+
+	while (MPULCD_DMABusy(LCD))
+		__NOP();
+}
