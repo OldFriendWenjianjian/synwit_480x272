@@ -1,5 +1,7 @@
-app/out/
+# 构建输出目录
+out/
 
+# 编译产物
 *.o
 *.d
 *.axf
@@ -9,12 +11,16 @@ app/out/
 *.dep
 *.lnp
 *.iex
+*.build_log.htm
 
+# Keil 本机配置
 *.uvoptx
 *.uvguix.*
 
+# 调试工具日志
 JLinkLog.txt
 JLinkSettings.ini
 
+# 系统杂项
 Thumbs.db
 .DS_Store
