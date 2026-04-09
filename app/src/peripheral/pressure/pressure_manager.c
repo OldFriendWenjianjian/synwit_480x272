@@ -35,6 +35,10 @@ static pressure_run_state_t s_run_state = PRESSURE_RUN_IDLE;
 static uint8_t s_active_index = 0U;
 static uint32_t s_next_action_tick = 0U;
 static uint32_t s_convert_start_tick = 0U;
+static uint32_t s_filter_counts[PRESSURE_MANAGER_SENSOR_COUNT][PRESSURE_MANAGER_FILTER_WINDOW];
+static uint8_t s_filter_head[PRESSURE_MANAGER_SENSOR_COUNT];
+static uint64_t s_zero_sum[PRESSURE_MANAGER_SENSOR_COUNT];
+static uint8_t s_zero_track_hits[PRESSURE_MANAGER_SENSOR_COUNT];
 
 static bool pressure_manager_time_reached(uint32_t now, uint32_t target)
 {
@@ -59,6 +63,147 @@ static float pressure_manager_counts_to_mmhg(uint32_t raw_counts)
     pressure += PRESSURE_MANAGER_PRESSURE_MIN_MMHG;
 
     return pressure;
+}
+
+static uint32_t pressure_manager_filter_raw_counts(uint8_t index, uint32_t raw_counts)
+{
+    uint32_t sorted_buf[PRESSURE_MANAGER_FILTER_WINDOW];
+    pressure_manager_data_t *data = &s_pressure_data[index];
+    uint32_t sample_count;
+    uint32_t i;
+    uint32_t j;
+    uint32_t tmp;
+    uint8_t head;
+
+    head = s_filter_head[index];
+    s_filter_counts[index][head] = raw_counts;
+    head++;
+    if(head >= PRESSURE_MANAGER_FILTER_WINDOW) {
+        head = 0U;
+    }
+    s_filter_head[index] = head;
+
+    if(data->zero_sample_count < PRESSURE_MANAGER_FILTER_WINDOW) {
+        sample_count = (uint32_t)data->zero_sample_count + 1U;
+    } else {
+        sample_count = PRESSURE_MANAGER_FILTER_WINDOW;
+    }
+
+    for(i = 0U; i < sample_count; i++) {
+        sorted_buf[i] = s_filter_counts[index][i];
+    }
+
+    for(i = 1U; i < sample_count; i++) {
+        tmp = sorted_buf[i];
+        j = i;
+        while((j > 0U) && (sorted_buf[j - 1U] > tmp)) {
+            sorted_buf[j] = sorted_buf[j - 1U];
+            j--;
+        }
+        sorted_buf[j] = tmp;
+    }
+
+    return sorted_buf[sample_count / 2U];
+}
+
+static uint32_t pressure_manager_apply_zero_reference(uint32_t filtered_counts, uint32_t zero_reference_counts)
+{
+    int32_t compensated_counts;
+
+    compensated_counts = (int32_t)filtered_counts;
+    compensated_counts -= (int32_t)zero_reference_counts;
+    compensated_counts += (int32_t)PRESSURE_MANAGER_OUTPUT_MIN_COUNTS;
+
+    if(compensated_counts <= (int32_t)PRESSURE_MANAGER_OUTPUT_MIN_COUNTS) {
+        return PRESSURE_MANAGER_OUTPUT_MIN_COUNTS;
+    }
+
+    if(compensated_counts >= (int32_t)PRESSURE_MANAGER_OUTPUT_MAX_COUNTS) {
+        return PRESSURE_MANAGER_OUTPUT_MAX_COUNTS;
+    }
+
+    return (uint32_t)compensated_counts;
+}
+
+static void pressure_manager_track_zero_reference(uint8_t index,
+                                                  uint32_t filtered_counts,
+                                                  float pressure_mmhg)
+{
+    pressure_manager_data_t *data = &s_pressure_data[index];
+
+#if (PRESSURE_MANAGER_ENABLE_ZERO_TRACKING == 0U)
+    (void)index;
+    (void)filtered_counts;
+    (void)pressure_mmhg;
+    (void)data;
+    return;
+#endif
+
+    if(data->zero_calibrated == false) {
+        return;
+    }
+
+    if((pressure_mmhg >= -PRESSURE_MANAGER_ZERO_TRACK_THRESHOLD_MMHG) &&
+       (pressure_mmhg <= PRESSURE_MANAGER_ZERO_TRACK_THRESHOLD_MMHG)) {
+        if(s_zero_track_hits[index] < 0xFFU) {
+            s_zero_track_hits[index]++;
+        }
+
+        if(s_zero_track_hits[index] >= PRESSURE_MANAGER_ZERO_TRACK_SAMPLES) {
+            data->zero_reference_counts =
+                (((data->zero_reference_counts << PRESSURE_MANAGER_ZERO_TRACK_SHIFT) -
+                  data->zero_reference_counts) + filtered_counts) >> PRESSURE_MANAGER_ZERO_TRACK_SHIFT;
+        }
+    } else {
+        s_zero_track_hits[index] = 0U;
+    }
+}
+
+static void pressure_manager_apply_measurement(uint8_t index, uint32_t raw_counts, uint32_t now)
+{
+    pressure_manager_data_t *data = &s_pressure_data[index];
+    uint32_t filtered_counts;
+    uint32_t compensated_counts;
+    uint32_t zero_reference_counts;
+    float pressure_mmhg;
+
+    filtered_counts = pressure_manager_filter_raw_counts(index, raw_counts);
+
+    data->sensor_raw_counts = raw_counts;
+    data->filtered_counts = filtered_counts;
+    data->busy = false;
+    data->data_valid = true;
+    data->update_tick = now;
+    data->last_error = PRESSURE_MANAGER_ERROR_NONE;
+
+    if(data->zero_calibrated == false) {
+        s_zero_sum[index] += filtered_counts;
+        if(data->zero_sample_count < PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES) {
+            data->zero_sample_count++;
+        }
+
+        data->zero_reference_counts =
+            (uint32_t)(s_zero_sum[index] / (uint64_t)data->zero_sample_count);
+
+        if(data->zero_sample_count >= PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES) {
+            data->zero_calibrated = true;
+        }
+
+        data->raw_counts = filtered_counts;
+        data->pressure_mmhg = 0.0f;
+        data->pressure_kpa = 0.0f;
+        return;
+    }
+
+    zero_reference_counts = data->zero_reference_counts;
+    compensated_counts = pressure_manager_apply_zero_reference(filtered_counts, zero_reference_counts);
+    pressure_mmhg = pressure_manager_counts_to_mmhg(compensated_counts);
+
+    pressure_manager_track_zero_reference(index, filtered_counts, pressure_mmhg);
+
+    data->raw_counts = compensated_counts;
+    data->pressure_mmhg = pressure_mmhg;
+    data->pressure_kpa = data->pressure_mmhg * PRESSURE_MMHG_TO_KPA;
 }
 
 static void pressure_manager_move_next(uint32_t now, uint32_t delay_ms)
@@ -175,13 +320,7 @@ static void pressure_manager_read_measurement(uint32_t now)
                | ((uint32_t)rx_buf[3] << 0);
 
     data->online = ((rx_buf[0] & MPRLS_STATUS_POWERED) != 0U) ? true : false;
-    data->busy = false;
-    data->data_valid = true;
-    data->raw_counts = raw_counts;
-    data->pressure_mmhg = pressure_manager_counts_to_mmhg(raw_counts);
-    data->pressure_kpa = data->pressure_mmhg * PRESSURE_MMHG_TO_KPA;
-    data->update_tick = now;
-    data->last_error = PRESSURE_MANAGER_ERROR_NONE;
+    pressure_manager_apply_measurement(s_active_index, raw_counts, now);
 
     pressure_manager_move_next(now, 0U);
 }
@@ -194,6 +333,10 @@ void pressure_manager_init(void)
     s_active_index = 0U;
     s_next_action_tick = 0U;
     s_convert_start_tick = 0U;
+    memset(s_filter_counts, 0, sizeof(s_filter_counts));
+    memset(s_filter_head, 0, sizeof(s_filter_head));
+    memset(s_zero_sum, 0, sizeof(s_zero_sum));
+    memset(s_zero_track_hits, 0, sizeof(s_zero_track_hits));
 
 #if defined(SWM34SVET6_A3)
     dev_i2c1_sensor_init(PRESSURE_MANAGER_I2C_CLOCK);

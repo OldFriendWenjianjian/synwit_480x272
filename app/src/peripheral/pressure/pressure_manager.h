@@ -43,6 +43,30 @@
 #define PRESSURE_MANAGER_OUTPUT_MAX_COUNTS 0x399999UL
 #endif
 
+#ifndef PRESSURE_MANAGER_FILTER_WINDOW
+#define PRESSURE_MANAGER_FILTER_WINDOW 5U
+#endif
+
+#ifndef PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES
+#define PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES 12U
+#endif
+
+#ifndef PRESSURE_MANAGER_ZERO_TRACK_THRESHOLD_MMHG
+#define PRESSURE_MANAGER_ZERO_TRACK_THRESHOLD_MMHG 1.50f
+#endif
+
+#ifndef PRESSURE_MANAGER_ZERO_TRACK_SAMPLES
+#define PRESSURE_MANAGER_ZERO_TRACK_SAMPLES 8U
+#endif
+
+#ifndef PRESSURE_MANAGER_ZERO_TRACK_SHIFT
+#define PRESSURE_MANAGER_ZERO_TRACK_SHIFT 5U
+#endif
+
+#ifndef PRESSURE_MANAGER_ENABLE_ZERO_TRACKING
+#define PRESSURE_MANAGER_ENABLE_ZERO_TRACKING 0U
+#endif
+
 typedef enum {
     PRESSURE_MANAGER_ERROR_NONE = 0,
     PRESSURE_MANAGER_ERROR_SELECT,
@@ -57,12 +81,17 @@ typedef struct {
     bool online;
     bool busy;
     bool data_valid;
+    bool zero_calibrated;
     uint8_t status;
+    uint32_t sensor_raw_counts;
     uint32_t raw_counts;
+    uint32_t filtered_counts;
+    uint32_t zero_reference_counts;
     float pressure_mmhg;
     float pressure_kpa;
     uint32_t update_tick;
     uint32_t error_count;
+    uint8_t zero_sample_count;
     pressure_manager_error_t last_error;
 } pressure_manager_data_t;
 

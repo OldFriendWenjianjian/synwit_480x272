@@ -7,29 +7,30 @@ __attribute__((weak)) void tp_read_points(void){}
 
 #define TP_I2C_INDEX        I2C0
 
-#define TP_GPIO_RST 		GPIOA
-#define TP_PIN_RST 			PIN5
+#define TP_GPIO_RST         GPIOA
+#define TP_PIN_RST          PIN5
 
-#define TP_PORT_SCL 		PORTA
+#define TP_PORT_SCL         PORTA
 #define TP_I2C_SCL_PIN      PIN1
 #define TP_I2C_SCL_PIN_FUNC PORTA_PIN1_I2C0_SCL
 
-#define TP_PORT_SDA 		PORTA
+#define TP_PORT_SDA         PORTA
 #define TP_I2C_SDA_PIN      PIN0
 #define TP_I2C_SDA_PIN_FUNC PORTA_PIN0_I2C0_SDA
 
 TP_IRQ_MAKE(GPIOD, PIN0);
-    
+
 static void i2c_init(uint32_t master_clk)
 {
     I2C_InitStructure I2C_initStruct;
 
-    PORT_Init(TP_PORT_SCL, TP_I2C_SCL_PIN, TP_I2C_SCL_PIN_FUNC, 1); // GPIOA.1配置为I2C0 SCL引脚
+    PORT_Init(TP_PORT_SCL, TP_I2C_SCL_PIN, TP_I2C_SCL_PIN_FUNC, 1);
     TP_PORT_SCL->OPEND |= (1 << TP_I2C_SCL_PIN);
-    TP_PORT_SCL->PULLU |= (1 << TP_I2C_SCL_PIN);                    //必须使能上拉，用于模拟开漏
-    PORT_Init(TP_PORT_SDA, TP_I2C_SDA_PIN, TP_I2C_SDA_PIN_FUNC, 1); // GPIOA.0配置为I2C0 SDA引脚
+    TP_PORT_SCL->PULLU |= (1 << TP_I2C_SCL_PIN);
+
+    PORT_Init(TP_PORT_SDA, TP_I2C_SDA_PIN, TP_I2C_SDA_PIN_FUNC, 1);
     TP_PORT_SDA->OPEND |= (1 << TP_I2C_SDA_PIN);
-    TP_PORT_SDA->PULLU |= (1 << TP_I2C_SDA_PIN); //必须使能上拉，用于模拟开漏
+    TP_PORT_SDA->PULLU |= (1 << TP_I2C_SDA_PIN);
 
     I2C_initStruct.Master = 1;
     I2C_initStruct.MstClk = master_clk;
@@ -64,19 +65,19 @@ void board_tp_init(void)
 {
     i2c_descriptor_t i2c_desc;
     memset(&i2c_desc, 0, sizeof(i2c_descriptor_t));
-    
+
     i2c_desc.init = i2c_init;
     i2c_desc.start = i2c_start;
     i2c_desc.stop = i2c_stop;
     i2c_desc.read = i2c_read;
     i2c_desc.write = i2c_write;
-    
+
     i2c_desc.reset_port = TP_GPIO_RST;
     i2c_desc.reset_pin = TP_PIN_RST;
-    
+
     i2c_desc.interrupt_port = s_tp_irq_port;
     i2c_desc.interrupt_pin = s_tp_irq_pin;
     i2c_desc.irq = s_tp_irq;
-    
+
     peripheral_tp_init(&i2c_desc);
 }

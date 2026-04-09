@@ -23,6 +23,20 @@
 
 extern synwit_sdisp_ops_t g_sdisp_ops;
 
+struct soft_uart_probe_desc
+{
+    const char *uart_name;
+    const char *tx_name;
+    GPIO_TypeDef *tx_gpio;
+    PORT_TypeDef *tx_port;
+    uint8_t tx_pin;
+    const char *rx_name;
+    GPIO_TypeDef *rx_gpio;
+    PORT_TypeDef *rx_port;
+    uint8_t rx_pin;
+    const char *runtime_note;
+};
+
 static void mount_external_fs();
 static void user_init();
 static void pressure_display_init(void);
@@ -41,35 +55,23 @@ static lv_obj_t *s_pressure_panel = NULL;
 static lv_obj_t *s_pressure_title_label = NULL;
 static lv_obj_t *s_pressure_value_label = NULL;
 static lv_obj_t *s_pressure_status_label = NULL;
+static lv_obj_t *s_pressure_adc_label = NULL;
 static uint32_t s_pressure_display_tick = 0U;
 static uint32_t s_pressure_debug_tick = 0U;
 static bool s_pressure_i2c_scan_done = false;
 
+/* Debug-only: busy-waits in main_tick() and disables IRQs while bit-banging. */
+#define SOFT_UART_PROBE_ENABLE         0U
 #define SOFT_UART_PROBE_PERIOD_MS      10000U
-#define SOFT_UART_PROBE_RX_WINDOW_MS   30U
+#define SOFT_UART_PROBE_RX_WINDOW_MS   10U
 #define SOFT_UART_PROBE_BIT_US         104U
 #define SOFT_UART_PROBE_START_GUARD_US 52U
 #define SOFT_UART_PROBE_POLL_US        8U
 #define SOFT_UART_PROBE_RX_MAX_LEN     8U
 
-struct soft_uart_probe_desc
-{
-    const char *group_name;
-    const char *tx_name;
-    GPIO_TypeDef *tx_gpio;
-    PORT_TypeDef *tx_port;
-    uint8_t tx_pin;
-    const char *rx_name;
-    GPIO_TypeDef *rx_gpio;
-    PORT_TypeDef *rx_port;
-    uint8_t rx_pin;
-    const char *hw_uart_note;
-    const char *runtime_note;
-};
-
 static const struct soft_uart_probe_desc s_soft_uart_probe_descs[] = {
     {
-        .group_name = "PD10/PD11",
+        .uart_name = "UART1",
         .tx_name = "PD10",
         .tx_gpio = GPIOD,
         .tx_port = PORTD,
@@ -78,11 +80,10 @@ static const struct soft_uart_probe_desc s_soft_uart_probe_descs[] = {
         .rx_gpio = GPIOD,
         .rx_port = PORTD,
         .rx_pin = PIN11,
-        .hw_uart_note = "no hw uart mux on either pin; use gpio soft uart",
         .runtime_note = "no board conflict found in current project"
     },
     {
-        .group_name = "PD12/PD13",
+        .uart_name = "UART2",
         .tx_name = "PD12",
         .tx_gpio = GPIOD,
         .tx_port = PORTD,
@@ -91,11 +92,10 @@ static const struct soft_uart_probe_desc s_soft_uart_probe_descs[] = {
         .rx_gpio = GPIOD,
         .rx_port = PORTD,
         .rx_pin = PIN13,
-        .hw_uart_note = "no hw uart mux on either pin; use gpio soft uart",
         .runtime_note = "no board conflict found in current project"
     },
     {
-        .group_name = "PD14/PD15",
+        .uart_name = "UART3",
         .tx_name = "PD14",
         .tx_gpio = GPIOD,
         .tx_port = PORTD,
@@ -104,73 +104,67 @@ static const struct soft_uart_probe_desc s_soft_uart_probe_descs[] = {
         .rx_gpio = GPIOD,
         .rx_port = PORTD,
         .rx_pin = PIN15,
-        .hw_uart_note = "no hw uart mux on either pin; use gpio soft uart",
         .runtime_note = "no board conflict found in current project"
     },
     {
-        .group_name = "PM9/PM10",
-        .tx_name = "PM9",
-        .tx_gpio = GPIOM,
-        .tx_port = PORTM,
-        .tx_pin = PIN9,
-        .rx_name = "PM10",
-        .rx_gpio = GPIOM,
-        .rx_port = PORTM,
-        .rx_pin = PIN10,
-        .hw_uart_note = "no hw uart mux on either pin; use gpio soft uart",
-        .runtime_note = "no board conflict found in current project"
-    },
-    {
-        .group_name = "PB0/PB12",
-        .tx_name = "PB0",
+        .uart_name = "UART4",
+        .tx_name = "PB3",
         .tx_gpio = GPIOB,
         .tx_port = PORTB,
-        .tx_pin = PIN0,
-        .rx_name = "PB12",
+        .tx_pin = PIN3,
+        .rx_name = "PB4",
         .rx_gpio = GPIOB,
         .rx_port = PORTB,
-        .rx_pin = PIN12,
-        .hw_uart_note = "PB0 is UART1_TX, PB12 is UART0_RX; not same hw uart",
-        .runtime_note = "PB12 is also SWDCK; runtime test impacts debugger"
+        .rx_pin = PIN4,
+        .runtime_note = "no board conflict found in current project"
     },
     {
-        .group_name = "PB14/PC6",
-        .tx_name = "PB14",
-        .tx_gpio = GPIOB,
-        .tx_port = PORTB,
-        .tx_pin = PIN14,
-        .rx_name = "PC6",
-        .rx_gpio = GPIOC,
-        .rx_port = PORTC,
-        .rx_pin = PIN6,
-        .hw_uart_note = "PB14 is UART0_TX, PC6 has no UART_RX mux; no hw uart pair",
-        .runtime_note = "PB14 is also SWDIO; runtime test impacts debugger"
-    },
-    {
-        .group_name = "PC7/PA8",
-        .tx_name = "PC7",
+        .uart_name = "UART5",
+        .tx_name = "PC6",
         .tx_gpio = GPIOC,
         .tx_port = PORTC,
-        .tx_pin = PIN7,
-        .rx_name = "PA8",
-        .rx_gpio = GPIOA,
-        .rx_port = PORTA,
-        .rx_pin = PIN8,
-        .hw_uart_note = "no hw uart mux on either pin; use gpio soft uart",
-        .runtime_note = "PC7 shares i2s pins; may conflict if audio is enabled"
+        .tx_pin = PIN6,
+        .rx_name = "PC7",
+        .rx_gpio = GPIOC,
+        .rx_port = PORTC,
+        .rx_pin = PIN7,
+        .runtime_note = "no board conflict found in current project"
     },
     {
-        .group_name = "PN4/PN5",
-        .tx_name = "PN4",
-        .tx_gpio = GPION,
-        .tx_port = PORTN,
-        .tx_pin = PIN4,
-        .rx_name = "PN5",
-        .rx_gpio = GPION,
-        .rx_port = PORTN,
-        .rx_pin = PIN5,
-        .hw_uart_note = "PN4 is UART1_RTS, PN5 is UART1_RX; missing TX for hw uart",
+        .uart_name = "UART6",
+        .tx_name = "PM7",
+        .tx_gpio = GPIOM,
+        .tx_port = PORTM,
+        .tx_pin = PIN7,
+        .rx_name = "PM9",
+        .rx_gpio = GPIOM,
+        .rx_port = PORTM,
+        .rx_pin = PIN9,
         .runtime_note = "no board conflict found in current project"
+    },
+    {
+        .uart_name = "UART7",
+        .tx_name = "PM10",
+        .tx_gpio = GPIOM,
+        .tx_port = PORTM,
+        .tx_pin = PIN10,
+        .rx_name = "PA12",
+        .rx_gpio = GPIOA,
+        .rx_port = PORTA,
+        .rx_pin = PIN12,
+        .runtime_note = "PA12 is available in current LV_COLOR_DEPTH=16 project"
+    },
+    {
+        .uart_name = "UART8",
+        .tx_name = "PA13",
+        .tx_gpio = GPIOA,
+        .tx_port = PORTA,
+        .tx_pin = PIN13,
+        .rx_name = "PC8",
+        .rx_gpio = GPIOC,
+        .rx_port = PORTC,
+        .rx_pin = PIN8,
+        .runtime_note = "PA13/PC8 are available in current LV_COLOR_DEPTH=16 project"
     }
 };
 
@@ -207,7 +201,7 @@ static void pressure_display_init(void)
     }
 
     s_pressure_panel = lv_obj_create(lv_layer_top(), NULL);
-    lv_obj_set_size(s_pressure_panel, 190, 78);
+    lv_obj_set_size(s_pressure_panel, 220, 108);
     lv_obj_align(s_pressure_panel, NULL, LV_ALIGN_IN_TOP_LEFT, 8, 8);
     lv_obj_set_click(s_pressure_panel, false);
     lv_obj_set_style_local_radius(s_pressure_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 8);
@@ -237,8 +231,16 @@ static void pressure_display_init(void)
     lv_obj_set_click(s_pressure_status_label, false);
     lv_obj_set_style_local_text_color(s_pressure_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
     lv_obj_set_style_local_text_opa(s_pressure_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_obj_set_style_local_text_font(s_pressure_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+    lv_obj_set_width(s_pressure_status_label, 206);
     lv_obj_align(s_pressure_status_label, s_pressure_value_label, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 2);
+
+    s_pressure_adc_label = lv_label_create(s_pressure_panel, NULL);
+    lv_label_set_text_static(s_pressure_adc_label, "Raw:-- Zero:--");
+    lv_obj_set_click(s_pressure_adc_label, false);
+    lv_obj_set_style_local_text_color(s_pressure_adc_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_set_style_local_text_opa(s_pressure_adc_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_width(s_pressure_adc_label, 206);
+    lv_obj_align(s_pressure_adc_label, s_pressure_status_label, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 2);
 
     pressure_display_update(true);
 }
@@ -249,8 +251,9 @@ static void pressure_display_update(bool force)
     uint32_t now;
     char value_text[48];
     char status_text[48];
+    char adc_text[48];
 
-    if((s_pressure_value_label == NULL) || (s_pressure_status_label == NULL)) {
+    if((s_pressure_value_label == NULL) || (s_pressure_status_label == NULL) || (s_pressure_adc_label == NULL)) {
         return;
     }
 
@@ -263,21 +266,41 @@ static void pressure_display_update(bool force)
     if((pressure_manager_get_data(0, &pressure_data) == true) &&
        pressure_data.online &&
        pressure_data.data_valid) {
-        pressure_display_format_fixed(value_text, sizeof(value_text), pressure_data.pressure_mmhg, "mmHg");
-        pressure_display_format_fixed(status_text, sizeof(status_text), pressure_data.pressure_kpa, "kPa");
+        if(pressure_data.zero_calibrated) {
+            pressure_display_format_fixed(value_text, sizeof(value_text), pressure_data.pressure_mmhg, "mmHg");
+            pressure_display_format_fixed(status_text, sizeof(status_text), pressure_data.pressure_kpa, "kPa");
+        } else {
+            snprintf(value_text, sizeof(value_text), "zeroing...");
+            snprintf(status_text, sizeof(status_text), "baseline %u/%u",
+                     (unsigned int)pressure_data.zero_sample_count,
+                     (unsigned int)PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES);
+        }
+
+        /* UI 里的 ADC 显示原始传感器计数，避免和补偿后的 raw_counts 混淆。 */
+        snprintf(adc_text, sizeof(adc_text), "Raw:%lu Zero:%lu",
+                 (unsigned long)pressure_data.sensor_raw_counts,
+                 (unsigned long)pressure_data.zero_reference_counts);
     } else if((pressure_manager_get_data(0, &pressure_data) == true) && pressure_data.busy) {
         snprintf(value_text, sizeof(value_text), "reading...");
         snprintf(status_text, sizeof(status_text), "sensor busy");
+        snprintf(adc_text, sizeof(adc_text), "Raw:%lu Zero:%lu",
+                 (unsigned long)pressure_data.sensor_raw_counts,
+                 (unsigned long)pressure_data.zero_reference_counts);
     } else if(pressure_manager_get_data(0, &pressure_data) == true) {
         snprintf(value_text, sizeof(value_text), "offline");
         snprintf(status_text, sizeof(status_text), "err=%u", (unsigned int)pressure_data.last_error);
+        snprintf(adc_text, sizeof(adc_text), "Raw:%lu Zero:%lu",
+                 (unsigned long)pressure_data.sensor_raw_counts,
+                 (unsigned long)pressure_data.zero_reference_counts);
     } else {
         snprintf(value_text, sizeof(value_text), "unavailable");
         snprintf(status_text, sizeof(status_text), "no data");
+        snprintf(adc_text, sizeof(adc_text), "Raw:-- Zero:--");
     }
 
     lv_label_set_text(s_pressure_value_label, value_text);
     lv_label_set_text(s_pressure_status_label, status_text);
+    lv_label_set_text(s_pressure_adc_label, adc_text);
 }
 
 static void pressure_debug_update(bool force)
@@ -296,13 +319,18 @@ static void pressure_debug_update(bool force)
         return;
     }
 
-    printf("[pressure] online=%u busy=%u valid=%u err=%u status=0x%02X raw=%lu mmHg=%ld.%02ld kPa=%ld.%02ld\r\n",
+    printf("[pressure] online=%u busy=%u valid=%u zero=%u zcnt=%u err=%u status=0x%02X sensor_raw=%lu adc=%lu filt=%lu zref=%lu mmHg=%ld.%02ld kPa=%ld.%02ld\r\n",
            pressure_data.online ? 1U : 0U,
            pressure_data.busy ? 1U : 0U,
            pressure_data.data_valid ? 1U : 0U,
+           pressure_data.zero_calibrated ? 1U : 0U,
+           (unsigned int)pressure_data.zero_sample_count,
            (unsigned int)pressure_data.last_error,
            (unsigned int)pressure_data.status,
+           (unsigned long)pressure_data.sensor_raw_counts,
            (unsigned long)pressure_data.raw_counts,
+           (unsigned long)pressure_data.filtered_counts,
+           (unsigned long)pressure_data.zero_reference_counts,
            (long)(pressure_data.pressure_mmhg),
            (long)((int32_t)(pressure_data.pressure_mmhg * 100.0f) % 100 + (((int32_t)(pressure_data.pressure_mmhg * 100.0f) % 100) < 0 ? 100 : 0)),
            (long)(pressure_data.pressure_kpa),
@@ -476,16 +504,17 @@ static void soft_uart_probe_init(void)
     s_soft_uart_probe_inited = true;
     s_soft_uart_probe_tick = swm_gettick();
 
-    printf("[uart-probe] start gpio soft-uart probe, using first pin as TX and second pin as RX\r\n");
+    printf("[uart-probe] start gpio soft-uart probe, using configured tx/rx pairs\r\n");
     printf("[uart-probe] round_period=%lu ms rx_window=%lu ms bit_time=%lu us (~9600bps)\r\n",
            (unsigned long)SOFT_UART_PROBE_PERIOD_MS,
            (unsigned long)SOFT_UART_PROBE_RX_WINDOW_MS,
            (unsigned long)SOFT_UART_PROBE_BIT_US);
 
     for(i = 0U; i < (uint32_t)(sizeof(s_soft_uart_probe_descs) / sizeof(s_soft_uart_probe_descs[0])); i++) {
-        printf("[uart-probe] %s: hw=%s; risk=%s\r\n",
-               s_soft_uart_probe_descs[i].group_name,
-               s_soft_uart_probe_descs[i].hw_uart_note,
+        printf("[uart-probe] %s tx=%s rx=%s note=%s\r\n",
+               s_soft_uart_probe_descs[i].uart_name,
+               s_soft_uart_probe_descs[i].tx_name,
+               s_soft_uart_probe_descs[i].rx_name,
                s_soft_uart_probe_descs[i].runtime_note);
     }
 }
@@ -510,7 +539,7 @@ static void soft_uart_probe_poll(void)
 
     desc = &s_soft_uart_probe_descs[s_soft_uart_probe_index];
     tx_data[0] = (uint8_t)'U';
-    tx_data[1] = (uint8_t)('0' + s_soft_uart_probe_index);
+    tx_data[1] = (uint8_t)('1' + s_soft_uart_probe_index);
 
     s_soft_uart_probe_index++;
     if(s_soft_uart_probe_index >= (uint32_t)(sizeof(s_soft_uart_probe_descs) / sizeof(s_soft_uart_probe_descs[0]))) {
@@ -519,8 +548,8 @@ static void soft_uart_probe_poll(void)
 
     soft_uart_probe_prepare_line(desc);
 
-    printf("[uart-probe] group=%s tx=%s rx=%s send=%c%c\r\n",
-           desc->group_name,
+    printf("[uart-probe] %s tx=%s rx=%s send=%c%c\r\n",
+           desc->uart_name,
            desc->tx_name,
            desc->rx_name,
            tx_data[0],
@@ -530,13 +559,13 @@ static void soft_uart_probe_poll(void)
     rx_len = soft_uart_probe_receive_window(desc, rx_buffer, sizeof(rx_buffer), SOFT_UART_PROBE_RX_WINDOW_MS);
 
     if(rx_len > 0U) {
-        printf("[uart-probe] group=%s rx_len=%lu ",
-               desc->group_name,
+        printf("[uart-probe] %s rx_len=%lu ",
+               desc->uart_name,
                (unsigned long)rx_len);
         soft_uart_probe_log_rx(rx_buffer, rx_len);
         printf("\r\n");
     } else {
-        printf("[uart-probe] group=%s rx_len=0 no data in rx window\r\n", desc->group_name);
+        printf("[uart-probe] %s rx_len=0 no data in rx window\r\n", desc->uart_name);
     }
 }
 
@@ -608,7 +637,9 @@ void main_tick(void)
     }
 
     pressure_i2c_scan_once();
+#if (SOFT_UART_PROBE_ENABLE != 0U)
     soft_uart_probe_poll();
+#endif
     pressure_manager_poll();
     pressure_display_update(false);
     pressure_debug_update(false);
@@ -663,7 +694,9 @@ static void user_init()
     //（注意：UI对象的创建、加载等不要加在这里，请在对应的screenXXX.c
     // 内进行UI对象的创建及操作）
     pressure_manager_init();
+#if (SOFT_UART_PROBE_ENABLE != 0U)
     soft_uart_probe_init();
+#endif
 
 }
 
