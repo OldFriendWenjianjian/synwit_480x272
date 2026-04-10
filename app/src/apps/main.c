@@ -13,6 +13,8 @@
 #include "ff.h"
 #include "../data_provider/data_provider.h"
 #include "pressure/pressure_manager.h"
+#include <stdlib.h>
+#include <string.h>
 
 #if defined(SWM34SVET6_A3)
 #include "swm34s/swm34svet6/a3/dev_i2c1_sensor.h"
@@ -39,10 +41,26 @@ struct soft_uart_probe_desc
 
 static void mount_external_fs();
 static void user_init();
-static void pressure_display_init(void);
-static void pressure_display_update(bool force);
+static void pressure_ui_init(void);
+static void pressure_ui_update(bool force);
 static void pressure_debug_update(bool force);
 static void pressure_i2c_scan_once(void);
+static void pressure_ui_refresh_detail_live(void);
+static void pressure_ui_load_detail_points(void);
+static void pressure_ui_open_detail(uint8_t sensor_index);
+static void pressure_ui_close_detail(void);
+static void pressure_ui_card_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_cal_btn_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_capture_btn_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_save_point_btn_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_clear_point_btn_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_detail_action_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_textarea_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_keyboard_event_cb(lv_obj_t *obj, lv_event_t event);
+static void pressure_ui_route_text(const pressure_manager_route_info_t *route_info, char *buf, size_t size);
+static bool pressure_ui_parse_mmhg_x100(const char *text, int32_t *value_x100);
+static void pressure_ui_format_mmhg(char *buf, size_t size, float value, const char *unit);
+static void pressure_ui_format_x100(char *buf, size_t size, int32_t value_x100);
 static void soft_uart_probe_init(void);
 static void soft_uart_probe_poll(void);
 static void soft_uart_probe_prepare_line(const struct soft_uart_probe_desc *desc);
@@ -51,14 +69,49 @@ static bool soft_uart_probe_receive_byte(const struct soft_uart_probe_desc *desc
 static uint32_t soft_uart_probe_receive_window(const struct soft_uart_probe_desc *desc, uint8_t *buffer, uint32_t max_len, uint32_t window_ms);
 static void soft_uart_probe_log_rx(const uint8_t *buffer, uint32_t len);
 
-static lv_obj_t *s_pressure_panel = NULL;
-static lv_obj_t *s_pressure_title_label = NULL;
-static lv_obj_t *s_pressure_value_label = NULL;
-static lv_obj_t *s_pressure_status_label = NULL;
-static lv_obj_t *s_pressure_adc_label = NULL;
+#define pressure_display_init   pressure_ui_init
+#define pressure_display_update pressure_ui_update
+
+typedef struct {
+    lv_obj_t *card;
+    lv_obj_t *title_label;
+    lv_obj_t *value_label;
+    lv_obj_t *route_label;
+    lv_obj_t *status_label;
+    lv_obj_t *calibration_label;
+    lv_obj_t *calibration_button;
+} pressure_ui_card_t;
+
+typedef struct {
+    lv_obj_t *ref_ta;
+    lv_obj_t *measured_ta;
+    lv_obj_t *raw_label;
+    lv_obj_t *capture_button;
+    lv_obj_t *save_button;
+    lv_obj_t *clear_button;
+} pressure_ui_point_row_t;
+
+static lv_obj_t *s_pressure_root = NULL;
+static lv_obj_t *s_pressure_header_label = NULL;
+static lv_obj_t *s_pressure_count_label = NULL;
+static lv_obj_t *s_pressure_page = NULL;
+static lv_obj_t *s_pressure_empty_label = NULL;
+static pressure_ui_card_t s_pressure_cards[PRESSURE_MANAGER_MAX_SENSORS];
+static lv_obj_t *s_pressure_detail = NULL;
+static lv_obj_t *s_pressure_detail_title = NULL;
+static lv_obj_t *s_pressure_detail_value = NULL;
+static lv_obj_t *s_pressure_detail_status = NULL;
+static pressure_ui_point_row_t s_pressure_point_rows[PRESSURE_MANAGER_MAX_CAL_POINTS];
+static lv_obj_t *s_pressure_detail_close_button = NULL;
+static lv_obj_t *s_pressure_detail_clear_button = NULL;
+static lv_obj_t *s_pressure_keyboard = NULL;
+static uint8_t s_pressure_detail_sensor = 0xFFU;
 static uint32_t s_pressure_display_tick = 0U;
 static uint32_t s_pressure_debug_tick = 0U;
 static bool s_pressure_i2c_scan_done = false;
+
+#define PRESSURE_UI_CARD_HEIGHT 58
+#define PRESSURE_UI_CARD_GAP    6
 
 /* Debug-only: busy-waits in main_tick() and disables IRQs while bit-banging. */
 #define SOFT_UART_PROBE_ENABLE         0U
@@ -172,21 +225,12 @@ static uint32_t s_soft_uart_probe_tick = 0U;
 static uint32_t s_soft_uart_probe_index = 0U;
 static bool s_soft_uart_probe_inited = false;
 
-static void pressure_display_format_fixed(char *buf, size_t size, float value, const char *unit)
+static void pressure_ui_format_mmhg(char *buf, size_t size, float value, const char *unit)
 {
-    int32_t scaled;
-    int32_t integer;
-    int32_t fraction;
+    int32_t scaled = (value >= 0.0f) ? (int32_t)(value * 100.0f + 0.5f) : (int32_t)(value * 100.0f - 0.5f);
+    int32_t integer = scaled / 100;
+    int32_t fraction = scaled % 100;
 
-    scaled = (int32_t)(value * 100.0f);
-    if(value >= 0.0f) {
-        scaled += 0;
-    } else {
-        scaled -= 0;
-    }
-
-    integer = scaled / 100;
-    fraction = scaled % 100;
     if(fraction < 0) {
         fraction = -fraction;
     }
@@ -194,74 +238,605 @@ static void pressure_display_format_fixed(char *buf, size_t size, float value, c
     snprintf(buf, size, "%ld.%02ld %s", (long)integer, (long)fraction, unit);
 }
 
-static void pressure_display_init(void)
+static void pressure_ui_format_x100(char *buf, size_t size, int32_t value_x100)
 {
-    if(s_pressure_value_label != NULL) {
+    int32_t integer = value_x100 / 100;
+    int32_t fraction = value_x100 % 100;
+
+    if(fraction < 0) {
+        fraction = -fraction;
+    }
+
+    snprintf(buf, size, "%ld.%02ld", (long)integer, (long)fraction);
+}
+
+static bool pressure_ui_parse_mmhg_x100(const char *text, int32_t *value_x100)
+{
+    const char *cursor = text;
+    int32_t sign = 1;
+    int32_t integer = 0;
+    int32_t fraction = 0;
+    int32_t scale = 10;
+    bool has_digit = false;
+
+    if((text == NULL) || (value_x100 == NULL)) {
+        return false;
+    }
+
+    while((*cursor == ' ') || (*cursor == '\t')) {
+        cursor++;
+    }
+
+    if(*cursor == '-') {
+        sign = -1;
+        cursor++;
+    } else if(*cursor == '+') {
+        cursor++;
+    }
+
+    while((*cursor >= '0') && (*cursor <= '9')) {
+        has_digit = true;
+        integer = integer * 10 + (int32_t)(*cursor - '0');
+        cursor++;
+    }
+
+    if(*cursor == '.') {
+        cursor++;
+        while((*cursor >= '0') && (*cursor <= '9') && (scale > 0)) {
+            has_digit = true;
+            fraction += (int32_t)(*cursor - '0') * scale;
+            scale /= 10;
+            cursor++;
+        }
+        while((*cursor >= '0') && (*cursor <= '9')) {
+            cursor++;
+        }
+    }
+
+    while((*cursor == ' ') || (*cursor == '\t')) {
+        cursor++;
+    }
+
+    if((has_digit == false) || (*cursor != '\0')) {
+        return false;
+    }
+
+    *value_x100 = sign * (integer * 100 + fraction);
+    return true;
+}
+
+static void pressure_ui_route_text(const pressure_manager_route_info_t *route_info, char *buf, size_t size)
+{
+    if((route_info == NULL) || (buf == NULL) || (size == 0U)) {
         return;
     }
 
-    s_pressure_panel = lv_obj_create(lv_layer_top(), NULL);
-    lv_obj_set_size(s_pressure_panel, 220, 108);
-    lv_obj_align(s_pressure_panel, NULL, LV_ALIGN_IN_TOP_LEFT, 8, 8);
-    lv_obj_set_click(s_pressure_panel, false);
-    lv_obj_set_style_local_radius(s_pressure_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 8);
-    lv_obj_set_style_local_bg_opa(s_pressure_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_70);
-    lv_obj_set_style_local_bg_color(s_pressure_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_obj_set_style_local_border_width(s_pressure_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
-    lv_obj_set_style_local_pad_all(s_pressure_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
-
-    s_pressure_title_label = lv_label_create(s_pressure_panel, NULL);
-    lv_label_set_text_static(s_pressure_title_label, "Pressure Sensor");
-    lv_obj_set_click(s_pressure_title_label, false);
-    lv_obj_set_style_local_text_color(s_pressure_title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-    lv_obj_set_style_local_text_opa(s_pressure_title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_obj_set_style_local_text_font(s_pressure_title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
-    lv_obj_align(s_pressure_title_label, NULL, LV_ALIGN_IN_TOP_LEFT, 0, 0);
-
-    s_pressure_value_label = lv_label_create(s_pressure_panel, NULL);
-    lv_label_set_text_static(s_pressure_value_label, "--.-- mmHg");
-    lv_obj_set_click(s_pressure_value_label, false);
-    lv_obj_set_style_local_text_color(s_pressure_value_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-    lv_obj_set_style_local_text_opa(s_pressure_value_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_obj_set_style_local_text_font(s_pressure_value_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
-    lv_obj_align(s_pressure_value_label, s_pressure_title_label, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 6);
-
-    s_pressure_status_label = lv_label_create(s_pressure_panel, NULL);
-    lv_label_set_text_static(s_pressure_status_label, "init");
-    lv_obj_set_click(s_pressure_status_label, false);
-    lv_obj_set_style_local_text_color(s_pressure_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-    lv_obj_set_style_local_text_opa(s_pressure_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_obj_set_width(s_pressure_status_label, 206);
-    lv_obj_align(s_pressure_status_label, s_pressure_value_label, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 2);
-
-    s_pressure_adc_label = lv_label_create(s_pressure_panel, NULL);
-    lv_label_set_text_static(s_pressure_adc_label, "Raw:-- Zero:--");
-    lv_obj_set_click(s_pressure_adc_label, false);
-    lv_obj_set_style_local_text_color(s_pressure_adc_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-    lv_obj_set_style_local_text_opa(s_pressure_adc_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_obj_set_width(s_pressure_adc_label, 206);
-    lv_obj_align(s_pressure_adc_label, s_pressure_status_label, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 2);
-
-    pressure_display_update(true);
+    if(route_info->route_type == PRESSURE_MANAGER_ROUTE_DIRECT) {
+        snprintf(buf, size, "Direct @0x%02X", (unsigned int)route_info->sensor_addr);
+    } else {
+        snprintf(buf, size, "TCA 0x%02X / CH%u",
+                 (unsigned int)route_info->mux_addr,
+                 (unsigned int)route_info->mux_channel);
+    }
 }
 
-static void pressure_display_update(bool force)
+static int32_t pressure_ui_find_sensor_index_from_obj(lv_obj_t *obj)
+{
+    uint32_t i;
+
+    for(i = 0U; i < PRESSURE_MANAGER_MAX_SENSORS; i++) {
+        if((s_pressure_cards[i].card == obj) || (s_pressure_cards[i].calibration_button == obj)) {
+            return (int32_t)i;
+        }
+    }
+
+    return -1;
+}
+
+static int32_t pressure_ui_find_point_index_from_obj(lv_obj_t *obj)
+{
+    uint32_t i;
+
+    for(i = 0U; i < PRESSURE_MANAGER_MAX_CAL_POINTS; i++) {
+        if((s_pressure_point_rows[i].capture_button == obj) ||
+           (s_pressure_point_rows[i].save_button == obj) ||
+           (s_pressure_point_rows[i].clear_button == obj)) {
+            return (int32_t)i;
+        }
+    }
+
+    return -1;
+}
+
+static void pressure_ui_destroy_keyboard(void)
+{
+    if(s_pressure_keyboard != NULL) {
+        lv_obj_del(s_pressure_keyboard);
+        s_pressure_keyboard = NULL;
+    }
+}
+
+static void pressure_ui_keyboard_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    lv_keyboard_def_event_cb(obj, event);
+
+    if((event == LV_EVENT_APPLY) || (event == LV_EVENT_CANCEL)) {
+        pressure_ui_destroy_keyboard();
+    }
+}
+
+static void pressure_ui_textarea_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void)obj;
+    (void)event;
+}
+
+static void pressure_ui_refresh_detail_live(void)
 {
     pressure_manager_data_t pressure_data;
-    uint32_t now;
+    pressure_manager_route_info_t route_info;
+    char title_text[48];
     char value_text[48];
-    char status_text[48];
-    char adc_text[48];
+    char status_text[96];
+    char route_text[32];
 
-    if((s_pressure_value_label == NULL) || (s_pressure_status_label == NULL) || (s_pressure_adc_label == NULL)) {
+    if((s_pressure_detail == NULL) || lv_obj_get_hidden(s_pressure_detail) || (s_pressure_detail_sensor >= PRESSURE_MANAGER_MAX_SENSORS)) {
+        return;
+    }
+
+    if((pressure_manager_get_data(s_pressure_detail_sensor, &pressure_data) == false) ||
+       (pressure_manager_get_route_info(s_pressure_detail_sensor, &route_info) == false)) {
+        return;
+    }
+
+    pressure_ui_route_text(&route_info, route_text, sizeof(route_text));
+    snprintf(title_text, sizeof(title_text), "Sensor %u  %s",
+             (unsigned int)(s_pressure_detail_sensor + 1U),
+             route_text);
+
+    if(pressure_data.data_valid && pressure_data.online && pressure_data.zero_calibrated) {
+        char measured_text[32];
+
+        pressure_ui_format_mmhg(value_text, sizeof(value_text), pressure_data.pressure_mmhg, "mmHg");
+        pressure_ui_format_mmhg(measured_text, sizeof(measured_text), pressure_data.measured_pressure_mmhg, "mmHg");
+        snprintf(status_text, sizeof(status_text), "Meas %s  Raw %lu  Pts %u/5  Tap to return",
+                 measured_text,
+                 (unsigned long)pressure_data.filtered_counts,
+                 (unsigned int)pressure_data.calibration_point_count);
+    } else if(pressure_data.data_valid && pressure_data.online) {
+        snprintf(value_text, sizeof(value_text), "Zeroing");
+        snprintf(status_text, sizeof(status_text), "Baseline %u/%u  Tap to return",
+                 (unsigned int)pressure_data.zero_sample_count,
+                 (unsigned int)PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES);
+    } else if(pressure_data.busy) {
+        snprintf(value_text, sizeof(value_text), "Reading");
+        snprintf(status_text, sizeof(status_text), "Sensor busy  Tap to return");
+    } else {
+        snprintf(value_text, sizeof(value_text), "Offline");
+        snprintf(status_text, sizeof(status_text), "Last err %u  Tap to return",
+                 (unsigned int)pressure_data.last_error);
+    }
+
+    lv_label_set_text(s_pressure_detail_title, title_text);
+    lv_label_set_text(s_pressure_detail_value, value_text);
+    lv_label_set_text(s_pressure_detail_status, status_text);
+}
+
+static void pressure_ui_load_detail_points(void)
+{
+    pressure_manager_calibration_t calibration;
+    uint32_t i;
+    char text[24];
+    char raw_text[32];
+
+    if((s_pressure_detail_sensor >= PRESSURE_MANAGER_MAX_SENSORS) ||
+       (pressure_manager_get_calibration(s_pressure_detail_sensor, &calibration) == false)) {
+        return;
+    }
+
+    for(i = 0U; i < PRESSURE_MANAGER_MAX_CAL_POINTS; i++) {
+        if(calibration.points[i].valid) {
+            pressure_ui_format_x100(text, sizeof(text), calibration.points[i].reference_mmhg_x100);
+            lv_textarea_set_text(s_pressure_point_rows[i].ref_ta, text);
+
+            pressure_ui_format_x100(text, sizeof(text), calibration.points[i].measured_mmhg_x100);
+            lv_textarea_set_text(s_pressure_point_rows[i].measured_ta, text);
+            snprintf(raw_text, sizeof(raw_text), "Raw %lu",
+                     (unsigned long)calibration.points[i].filtered_counts);
+            lv_label_set_text(s_pressure_point_rows[i].raw_label, raw_text);
+        } else {
+            lv_textarea_set_text(s_pressure_point_rows[i].ref_ta, "");
+            lv_textarea_set_text(s_pressure_point_rows[i].measured_ta, "");
+            lv_label_set_text(s_pressure_point_rows[i].raw_label, "Raw --");
+        }
+    }
+
+    pressure_ui_refresh_detail_live();
+}
+
+static void pressure_ui_open_detail(uint8_t sensor_index)
+{
+    if((s_pressure_detail == NULL) || (sensor_index >= pressure_manager_get_sensor_count())) {
+        return;
+    }
+
+    pressure_ui_destroy_keyboard();
+    s_pressure_detail_sensor = sensor_index;
+    lv_obj_set_hidden(s_pressure_detail, false);
+    pressure_ui_load_detail_points();
+}
+
+static void pressure_ui_close_detail(void)
+{
+    pressure_ui_destroy_keyboard();
+    s_pressure_detail_sensor = 0xFFU;
+    if(s_pressure_detail != NULL) {
+        lv_obj_set_hidden(s_pressure_detail, true);
+    }
+}
+
+static void pressure_ui_card_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    int32_t sensor_index;
+
+    if(event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    sensor_index = pressure_ui_find_sensor_index_from_obj(obj);
+    if(sensor_index >= 0) {
+        pressure_ui_open_detail((uint8_t)sensor_index);
+    }
+}
+
+static void pressure_ui_cal_btn_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    pressure_ui_card_event_cb(obj, event);
+}
+
+static void pressure_ui_capture_btn_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    int32_t point_index;
+    int32_t reference_x100;
+
+    if((event != LV_EVENT_CLICKED) || (s_pressure_detail_sensor >= pressure_manager_get_sensor_count())) {
+        return;
+    }
+
+    point_index = pressure_ui_find_point_index_from_obj(obj);
+    if(point_index < 0) {
+        return;
+    }
+
+    if(pressure_ui_parse_mmhg_x100(lv_textarea_get_text(s_pressure_point_rows[point_index].ref_ta), &reference_x100) == false) {
+        lv_label_set_text(s_pressure_detail_status, "Invalid reference input");
+        return;
+    }
+
+    if(pressure_manager_capture_calibration_point(s_pressure_detail_sensor, (uint8_t)point_index, reference_x100) == false) {
+        lv_label_set_text(s_pressure_detail_status, "Capture failed, sensor not ready");
+        return;
+    }
+
+    pressure_ui_destroy_keyboard();
+    pressure_ui_load_detail_points();
+}
+
+static void pressure_ui_save_point_btn_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    pressure_manager_calibration_t calibration;
+    pressure_manager_data_t pressure_data;
+    int32_t point_index;
+    int32_t reference_x100;
+    uint32_t filtered_counts = 0U;
+
+    if((event != LV_EVENT_CLICKED) || (s_pressure_detail_sensor >= pressure_manager_get_sensor_count())) {
+        return;
+    }
+
+    point_index = pressure_ui_find_point_index_from_obj(obj);
+    if(point_index < 0) {
+        return;
+    }
+
+    if(pressure_ui_parse_mmhg_x100(lv_textarea_get_text(s_pressure_point_rows[point_index].ref_ta), &reference_x100) == false) {
+        lv_label_set_text(s_pressure_detail_status, "Invalid standard value");
+        return;
+    }
+
+    if(pressure_manager_get_calibration(s_pressure_detail_sensor, &calibration) &&
+       calibration.points[point_index].valid) {
+        filtered_counts = calibration.points[point_index].filtered_counts;
+    } else if(pressure_manager_get_data(s_pressure_detail_sensor, &pressure_data) && pressure_data.data_valid) {
+        filtered_counts = pressure_data.filtered_counts;
+    }
+
+    if(pressure_manager_set_calibration_point(s_pressure_detail_sensor,
+                                              (uint8_t)point_index,
+                                              reference_x100,
+                                              filtered_counts) == false) {
+        lv_label_set_text(s_pressure_detail_status, "Save failed");
+        return;
+    }
+
+    pressure_ui_destroy_keyboard();
+    pressure_ui_load_detail_points();
+}
+
+static void pressure_ui_clear_point_btn_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    int32_t point_index;
+
+    if((event != LV_EVENT_CLICKED) || (s_pressure_detail_sensor >= pressure_manager_get_sensor_count())) {
+        return;
+    }
+
+    point_index = pressure_ui_find_point_index_from_obj(obj);
+    if(point_index < 0) {
+        return;
+    }
+
+    if(pressure_manager_clear_calibration_point(s_pressure_detail_sensor, (uint8_t)point_index)) {
+        pressure_ui_load_detail_points();
+    }
+}
+
+static void pressure_ui_detail_action_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    if(event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    if((obj == s_pressure_detail) || (obj == s_pressure_detail_close_button)) {
+        pressure_ui_close_detail();
+    } else if((obj == s_pressure_detail_clear_button) && (s_pressure_detail_sensor < pressure_manager_get_sensor_count())) {
+        if(pressure_manager_clear_calibration(s_pressure_detail_sensor)) {
+            pressure_ui_load_detail_points();
+        }
+    }
+}
+
+static void pressure_ui_init(void)
+{
+    lv_obj_t *page_scrl;
+    lv_obj_t *obj;
+    lv_obj_t *label;
+    lv_coord_t y;
+    uint32_t i;
+
+    if(s_pressure_root != NULL) {
+        return;
+    }
+
+    s_pressure_root = lv_cont_create(lv_layer_top(), NULL);
+    lv_obj_set_size(s_pressure_root, 480, 272);
+    lv_obj_align(s_pressure_root, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_local_bg_color(s_pressure_root, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x14, 0x1A, 0x22));
+    lv_obj_set_style_local_bg_opa(s_pressure_root, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_border_width(s_pressure_root, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_pad_all(s_pressure_root, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
+
+    s_pressure_header_label = lv_label_create(s_pressure_root, NULL);
+    lv_label_set_text_static(s_pressure_header_label, "Pressure Sensors");
+    lv_obj_set_style_local_text_color(s_pressure_header_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_set_style_local_text_font(s_pressure_header_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+    lv_obj_align(s_pressure_header_label, s_pressure_root, LV_ALIGN_IN_TOP_LEFT, 12, 10);
+
+    s_pressure_count_label = lv_label_create(s_pressure_root, NULL);
+    lv_label_set_text_static(s_pressure_count_label, "0 detected");
+    lv_obj_set_style_local_text_color(s_pressure_count_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_obj_align(s_pressure_count_label, s_pressure_root, LV_ALIGN_IN_TOP_RIGHT, -12, 14);
+
+    s_pressure_page = lv_page_create(s_pressure_root, NULL);
+    lv_obj_set_size(s_pressure_page, 468, 224);
+    lv_obj_align(s_pressure_page, s_pressure_root, LV_ALIGN_IN_BOTTOM_MID, 0, -6);
+    lv_page_set_scrollbar_mode(s_pressure_page, LV_SCROLLBAR_MODE_AUTO);
+    lv_obj_set_style_local_bg_color(s_pressure_page, LV_PAGE_PART_BG, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x1B, 0x22, 0x2C));
+    lv_obj_set_style_local_bg_opa(s_pressure_page, LV_PAGE_PART_BG, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_border_width(s_pressure_page, LV_PAGE_PART_BG, LV_STATE_DEFAULT, 0);
+
+    page_scrl = lv_page_get_scrl(s_pressure_page);
+
+    s_pressure_empty_label = lv_label_create(page_scrl, NULL);
+    lv_label_set_text_static(s_pressure_empty_label, "No pressure sensor detected");
+    lv_obj_set_style_local_text_color(s_pressure_empty_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_obj_align(s_pressure_empty_label, page_scrl, LV_ALIGN_IN_TOP_MID, 0, 20);
+
+    for(i = 0U; i < PRESSURE_MANAGER_MAX_SENSORS; i++) {
+        s_pressure_cards[i].card = lv_cont_create(page_scrl, NULL);
+        lv_obj_set_size(s_pressure_cards[i].card, 444, PRESSURE_UI_CARD_HEIGHT);
+        lv_obj_set_pos(s_pressure_cards[i].card, 8, 8 + (lv_coord_t)i * (PRESSURE_UI_CARD_HEIGHT + PRESSURE_UI_CARD_GAP));
+        lv_obj_set_event_cb(s_pressure_cards[i].card, pressure_ui_card_event_cb);
+        lv_obj_set_style_local_radius(s_pressure_cards[i].card, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 6);
+        lv_obj_set_style_local_bg_color(s_pressure_cards[i].card, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x2A, 0x33, 0x40));
+        lv_obj_set_style_local_bg_opa(s_pressure_cards[i].card, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+        lv_obj_set_style_local_border_width(s_pressure_cards[i].card, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
+
+        s_pressure_cards[i].title_label = lv_label_create(s_pressure_cards[i].card, NULL);
+        lv_obj_set_style_local_text_color(s_pressure_cards[i].title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+        lv_obj_set_pos(s_pressure_cards[i].title_label, 10, 6);
+
+        s_pressure_cards[i].value_label = lv_label_create(s_pressure_cards[i].card, NULL);
+        lv_obj_set_style_local_text_color(s_pressure_cards[i].value_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x7E, 0xE7, 0xAE));
+        lv_obj_set_style_local_text_font(s_pressure_cards[i].value_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+        lv_obj_set_pos(s_pressure_cards[i].value_label, 10, 26);
+
+        s_pressure_cards[i].route_label = lv_label_create(s_pressure_cards[i].card, NULL);
+        lv_obj_set_style_local_text_color(s_pressure_cards[i].route_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+        lv_obj_set_pos(s_pressure_cards[i].route_label, 160, 6);
+
+        s_pressure_cards[i].status_label = lv_label_create(s_pressure_cards[i].card, NULL);
+        lv_obj_set_width(s_pressure_cards[i].status_label, 170);
+        lv_obj_set_style_local_text_color(s_pressure_cards[i].status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+        lv_obj_set_pos(s_pressure_cards[i].status_label, 160, 26);
+
+        s_pressure_cards[i].calibration_label = lv_label_create(s_pressure_cards[i].card, NULL);
+        lv_obj_set_style_local_text_color(s_pressure_cards[i].calibration_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xF2, 0xC2, 0x4D));
+        lv_obj_set_pos(s_pressure_cards[i].calibration_label, 340, 10);
+
+        s_pressure_cards[i].calibration_button = lv_btn_create(s_pressure_cards[i].card, NULL);
+        lv_obj_set_size(s_pressure_cards[i].calibration_button, 70, 30);
+        lv_obj_align(s_pressure_cards[i].calibration_button, s_pressure_cards[i].card, LV_ALIGN_IN_RIGHT_MID, -8, 0);
+        lv_obj_set_event_cb(s_pressure_cards[i].calibration_button, pressure_ui_cal_btn_event_cb);
+
+        lv_obj_set_hidden(s_pressure_cards[i].calibration_button, true);
+    }
+
+    s_pressure_detail = lv_cont_create(s_pressure_root, NULL);
+    lv_obj_set_size(s_pressure_detail, 468, 260);
+    lv_obj_align(s_pressure_detail, s_pressure_root, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(s_pressure_detail, pressure_ui_detail_action_event_cb);
+    lv_obj_set_style_local_bg_color(s_pressure_detail, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x0E, 0x13, 0x19));
+    lv_obj_set_style_local_bg_opa(s_pressure_detail, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_90);
+    lv_obj_set_style_local_border_width(s_pressure_detail, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_radius(s_pressure_detail, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 8);
+    lv_obj_set_hidden(s_pressure_detail, true);
+
+    s_pressure_detail_title = lv_label_create(s_pressure_detail, NULL);
+    lv_obj_set_style_local_text_color(s_pressure_detail_title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_set_style_local_text_font(s_pressure_detail_title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+    lv_obj_set_pos(s_pressure_detail_title, 12, 10);
+
+    s_pressure_detail_value = lv_label_create(s_pressure_detail, NULL);
+    lv_obj_set_style_local_text_color(s_pressure_detail_value, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x7E, 0xE7, 0xAE));
+    lv_obj_set_style_local_text_font(s_pressure_detail_value, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+    lv_obj_set_pos(s_pressure_detail_value, 12, 34);
+
+    s_pressure_detail_status = lv_label_create(s_pressure_detail, NULL);
+    lv_obj_set_width(s_pressure_detail_status, 440);
+    lv_obj_set_style_local_text_color(s_pressure_detail_status, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_obj_set_pos(s_pressure_detail_status, 12, 60);
+
+    label = lv_label_create(s_pressure_detail, NULL);
+    lv_label_set_text_static(label, "Std");
+    lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_obj_set_pos(label, 44, 86);
+
+    label = lv_label_create(s_pressure_detail, NULL);
+    lv_label_set_text_static(label, "Meas");
+    lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_obj_set_pos(label, 126, 86);
+
+    label = lv_label_create(s_pressure_detail, NULL);
+    lv_label_set_text_static(label, "Raw");
+    lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_obj_set_pos(label, 382, 86);
+
+    y = 88;
+    for(i = 0U; i < PRESSURE_MANAGER_MAX_CAL_POINTS; i++) {
+        label = lv_label_create(s_pressure_detail, NULL);
+        {
+            char point_name[8];
+            snprintf(point_name, sizeof(point_name), "P%u", (unsigned int)(i + 1U));
+            lv_label_set_text(label, point_name);
+        }
+        lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+        lv_obj_set_pos(label, 12, y + 7);
+
+        s_pressure_point_rows[i].ref_ta = lv_textarea_create(s_pressure_detail, NULL);
+        lv_obj_set_size(s_pressure_point_rows[i].ref_ta, 74, 28);
+        lv_obj_set_pos(s_pressure_point_rows[i].ref_ta, 34, y);
+        lv_textarea_set_one_line(s_pressure_point_rows[i].ref_ta, true);
+        lv_textarea_set_max_length(s_pressure_point_rows[i].ref_ta, 9);
+        lv_obj_set_click(s_pressure_point_rows[i].ref_ta, false);
+
+        s_pressure_point_rows[i].measured_ta = lv_textarea_create(s_pressure_detail, NULL);
+        lv_obj_set_size(s_pressure_point_rows[i].measured_ta, 74, 28);
+        lv_obj_set_pos(s_pressure_point_rows[i].measured_ta, 114, y);
+        lv_textarea_set_one_line(s_pressure_point_rows[i].measured_ta, true);
+        lv_textarea_set_max_length(s_pressure_point_rows[i].measured_ta, 9);
+        lv_obj_set_click(s_pressure_point_rows[i].measured_ta, false);
+
+        s_pressure_point_rows[i].capture_button = lv_btn_create(s_pressure_detail, NULL);
+        lv_obj_set_size(s_pressure_point_rows[i].capture_button, 48, 28);
+        lv_obj_set_pos(s_pressure_point_rows[i].capture_button, 194, y);
+        lv_obj_set_event_cb(s_pressure_point_rows[i].capture_button, pressure_ui_capture_btn_event_cb);
+        lv_obj_set_hidden(s_pressure_point_rows[i].capture_button, true);
+        obj = lv_label_create(s_pressure_point_rows[i].capture_button, NULL);
+        lv_label_set_text_static(obj, "Cap");
+        lv_obj_align(obj, s_pressure_point_rows[i].capture_button, LV_ALIGN_CENTER, 0, 0);
+
+        s_pressure_point_rows[i].save_button = lv_btn_create(s_pressure_detail, NULL);
+        lv_obj_set_size(s_pressure_point_rows[i].save_button, 48, 28);
+        lv_obj_set_pos(s_pressure_point_rows[i].save_button, 246, y);
+        lv_obj_set_event_cb(s_pressure_point_rows[i].save_button, pressure_ui_save_point_btn_event_cb);
+        lv_obj_set_hidden(s_pressure_point_rows[i].save_button, true);
+        obj = lv_label_create(s_pressure_point_rows[i].save_button, NULL);
+        lv_label_set_text_static(obj, "Save");
+        lv_obj_align(obj, s_pressure_point_rows[i].save_button, LV_ALIGN_CENTER, 0, 0);
+
+        s_pressure_point_rows[i].clear_button = lv_btn_create(s_pressure_detail, NULL);
+        lv_obj_set_size(s_pressure_point_rows[i].clear_button, 48, 28);
+        lv_obj_set_pos(s_pressure_point_rows[i].clear_button, 298, y);
+        lv_obj_set_event_cb(s_pressure_point_rows[i].clear_button, pressure_ui_clear_point_btn_event_cb);
+        lv_obj_set_hidden(s_pressure_point_rows[i].clear_button, true);
+        obj = lv_label_create(s_pressure_point_rows[i].clear_button, NULL);
+        lv_label_set_text_static(obj, "Del");
+        lv_obj_align(obj, s_pressure_point_rows[i].clear_button, LV_ALIGN_CENTER, 0, 0);
+
+        s_pressure_point_rows[i].raw_label = lv_label_create(s_pressure_detail, NULL);
+        lv_obj_set_width(s_pressure_point_rows[i].raw_label, 108);
+        lv_obj_set_style_local_text_color(s_pressure_point_rows[i].raw_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+        lv_obj_set_pos(s_pressure_point_rows[i].raw_label, 352, y + 7);
+        lv_label_set_text_static(s_pressure_point_rows[i].raw_label, "Raw --");
+
+        y += 32;
+    }
+
+    s_pressure_detail_clear_button = lv_btn_create(s_pressure_detail, NULL);
+    lv_obj_set_size(s_pressure_detail_clear_button, 96, 30);
+    lv_obj_set_pos(s_pressure_detail_clear_button, 248, 224);
+    lv_obj_set_event_cb(s_pressure_detail_clear_button, pressure_ui_detail_action_event_cb);
+    lv_obj_set_hidden(s_pressure_detail_clear_button, true);
+    label = lv_label_create(s_pressure_detail_clear_button, NULL);
+    lv_label_set_text_static(label, "Clear All");
+    lv_obj_align(label, s_pressure_detail_clear_button, LV_ALIGN_CENTER, 0, 0);
+
+    s_pressure_detail_close_button = lv_btn_create(s_pressure_detail, NULL);
+    lv_obj_set_size(s_pressure_detail_close_button, 78, 28);
+    lv_obj_set_pos(s_pressure_detail_close_button, 378, 8);
+    lv_obj_set_event_cb(s_pressure_detail_close_button, pressure_ui_detail_action_event_cb);
+    lv_obj_set_hidden(s_pressure_detail_close_button, true);
+    label = lv_label_create(s_pressure_detail_close_button, NULL);
+    lv_label_set_text_static(label, "Back");
+    lv_obj_align(label, s_pressure_detail_close_button, LV_ALIGN_CENTER, 0, 0);
+
+    pressure_ui_update(true);
+}
+
+#if 0
+static void pressure_ui_update(bool force)
+{
+    pressure_manager_data_t pressure_data;
+    pressure_manager_route_info_t route_info;
+    lv_obj_t *page_scrl;
+    uint32_t now;
+    uint32_t sensor_count;
+    uint32_t i;
+    lv_coord_t content_height;
+    char text[48];
+
+    if((s_pressure_root == NULL) || (s_pressure_page == NULL) || (s_pressure_count_label == NULL)) {
         return;
     }
 
     now = swm_gettick();
-    if((force == false) && ((now - s_pressure_display_tick) < 1000U)) {
+    if((force == false) && ((now - s_pressure_display_tick) < 500U)) {
         return;
     }
     s_pressure_display_tick = now;
+
+    sensor_count = pressure_manager_get_sensor_count();
+    snprintf(text, sizeof(text), "%u detected", (unsigned int)sensor_count);
+    lv_label_set_text(s_pressure_count_label, text);
+    lv_obj_set_hidden(s_pressure_empty_label, (sensor_count != 0U));
+
+    page_scrl = lv_page_get_scrl(s_pressure_page);
+    content_height = 36;
+    if(sensor_count > 0U) {
+        content_height = 8 + (lv_coord_t)sensor_count * (PRESSURE_UI_CARD_HEIGHT + PRESSURE_UI_CARD_GAP);
+    }
+    lv_obj_set_size(page_scrl, lv_obj_get_width(page_scrl), content_height);
 
     if((pressure_manager_get_data(0, &pressure_data) == true) &&
        pressure_data.online &&
@@ -349,6 +924,193 @@ static void pressure_i2c_scan_once(void)
     s_pressure_i2c_scan_done = true;
 
     printf("[pressure] scan i2c1 on PA6/PA7, expecting sensor at 0x18\r\n");
+    for(addr = 0x08U; addr < 0x78U; addr++) {
+        if(dev_i2c1_sensor_probe(addr)) {
+            printf("[pressure] i2c1 ack at 0x%02X\r\n", (unsigned int)addr);
+            found = true;
+        }
+    }
+
+    if(found == false) {
+        printf("[pressure] i2c1 scan result: no device ack\r\n");
+    }
+#endif
+}
+#endif
+
+static void pressure_ui_update(bool force)
+{
+    pressure_manager_data_t pressure_data;
+    pressure_manager_route_info_t route_info;
+    lv_obj_t *page_scrl;
+    uint32_t now;
+    uint32_t sensor_count;
+    uint32_t i;
+    lv_coord_t content_height;
+    char text[48];
+
+    if((s_pressure_root == NULL) || (s_pressure_page == NULL) || (s_pressure_count_label == NULL)) {
+        return;
+    }
+
+    now = swm_gettick();
+    if((force == false) && ((now - s_pressure_display_tick) < 500U)) {
+        return;
+    }
+    s_pressure_display_tick = now;
+
+    sensor_count = pressure_manager_get_sensor_count();
+    snprintf(text, sizeof(text), "%u detected", (unsigned int)sensor_count);
+    lv_label_set_text(s_pressure_count_label, text);
+    lv_obj_set_hidden(s_pressure_empty_label, (sensor_count != 0U));
+
+    page_scrl = lv_page_get_scrl(s_pressure_page);
+    content_height = 36;
+    if(sensor_count > 0U) {
+        content_height = 8 + (lv_coord_t)sensor_count * (PRESSURE_UI_CARD_HEIGHT + PRESSURE_UI_CARD_GAP);
+    }
+    lv_obj_set_size(page_scrl, lv_obj_get_width(page_scrl), content_height);
+
+    for(i = 0U; i < PRESSURE_MANAGER_MAX_SENSORS; i++) {
+        pressure_ui_card_t *card = &s_pressure_cards[i];
+
+        if(i >= sensor_count) {
+            lv_obj_set_hidden(card->card, true);
+            continue;
+        }
+
+        lv_obj_set_hidden(card->card, false);
+        lv_obj_set_pos(card->card, 8, 8 + (lv_coord_t)i * (PRESSURE_UI_CARD_HEIGHT + PRESSURE_UI_CARD_GAP));
+
+        snprintf(text, sizeof(text), "Sensor %u", (unsigned int)(i + 1U));
+        lv_label_set_text(card->title_label, text);
+
+        if(pressure_manager_get_route_info((uint8_t)i, &route_info)) {
+            char route_text[32];
+
+            pressure_ui_route_text(&route_info, route_text, sizeof(route_text));
+            lv_label_set_text(card->route_label, route_text);
+        } else {
+            lv_label_set_text(card->route_label, "Route --");
+        }
+
+        if(pressure_manager_get_data((uint8_t)i, &pressure_data) == false) {
+            lv_label_set_text(card->value_label, "Unavailable");
+            lv_label_set_text(card->status_label, "No runtime data");
+            lv_label_set_text(card->calibration_label, "Pts 0/5");
+            continue;
+        }
+
+        snprintf(text, sizeof(text), "Pts %u/5", (unsigned int)pressure_data.calibration_point_count);
+        lv_label_set_text(card->calibration_label, text);
+
+        if(pressure_data.data_valid && pressure_data.online && pressure_data.zero_calibrated) {
+            char value_card_text[32];
+            char measured_text[32];
+            char status_card_text[96];
+
+            pressure_ui_format_mmhg(value_card_text, sizeof(value_card_text), pressure_data.pressure_mmhg, "mmHg");
+            pressure_ui_format_mmhg(measured_text, sizeof(measured_text), pressure_data.measured_pressure_mmhg, "mmHg");
+            snprintf(status_card_text, sizeof(status_card_text), "Raw %lu  %s",
+                     (unsigned long)pressure_data.filtered_counts,
+                     measured_text);
+            lv_label_set_text(card->value_label, value_card_text);
+            lv_label_set_text(card->status_label, status_card_text);
+        } else if(pressure_data.data_valid && pressure_data.online) {
+            char status_card_text[64];
+
+            lv_label_set_text(card->value_label, "Zeroing");
+            snprintf(status_card_text, sizeof(status_card_text), "Baseline %u/%u",
+                     (unsigned int)pressure_data.zero_sample_count,
+                     (unsigned int)PRESSURE_MANAGER_ZERO_CALIBRATION_SAMPLES);
+            lv_label_set_text(card->status_label, status_card_text);
+        } else if(pressure_data.busy) {
+            lv_label_set_text(card->value_label, "Reading");
+            lv_label_set_text(card->status_label, "Sensor busy");
+        } else {
+            char status_card_text[64];
+
+            lv_label_set_text(card->value_label, "Offline");
+            snprintf(status_card_text, sizeof(status_card_text), "Err %u Raw %lu",
+                     (unsigned int)pressure_data.last_error,
+                     (unsigned long)pressure_data.filtered_counts);
+            lv_label_set_text(card->status_label, status_card_text);
+        }
+    }
+
+    if((s_pressure_detail_sensor != 0xFFU) && (s_pressure_detail_sensor >= sensor_count)) {
+        pressure_ui_close_detail();
+    } else {
+        pressure_ui_refresh_detail_live();
+    }
+}
+
+static void pressure_debug_update(bool force)
+{
+    pressure_manager_data_t pressure_data;
+    pressure_manager_route_info_t route_info;
+    uint32_t now;
+    uint32_t sensor_count;
+    uint32_t i;
+    char route_text[32];
+
+    now = swm_gettick();
+    if((force == false) && ((now - s_pressure_debug_tick) < 1000U)) {
+        return;
+    }
+    s_pressure_debug_tick = now;
+
+    sensor_count = pressure_manager_get_sensor_count();
+    printf("[pressure] sensors=%u\r\n", (unsigned int)sensor_count);
+
+    if(sensor_count == 0U) {
+        printf("[pressure] no route detected\r\n");
+        return;
+    }
+
+    for(i = 0U; i < sensor_count; i++) {
+        if(pressure_manager_get_data((uint8_t)i, &pressure_data) == false) {
+            printf("[pressure] [%u] no data object\r\n", (unsigned int)i);
+            continue;
+        }
+
+        if(pressure_manager_get_route_info((uint8_t)i, &route_info)) {
+            pressure_ui_route_text(&route_info, route_text, sizeof(route_text));
+        } else {
+            snprintf(route_text, sizeof(route_text), "Route --");
+        }
+
+        printf("[pressure] [%u] %s online=%u busy=%u valid=%u zero=%u cal=%u raw=%lu filt=%lu zref=%lu meas=%ld.%02ld out=%ld.%02ld err=%u\r\n",
+               (unsigned int)i,
+               route_text,
+               pressure_data.online ? 1U : 0U,
+               pressure_data.busy ? 1U : 0U,
+               pressure_data.data_valid ? 1U : 0U,
+               pressure_data.zero_calibrated ? 1U : 0U,
+               (unsigned int)pressure_data.calibration_point_count,
+               (unsigned long)pressure_data.sensor_raw_counts,
+               (unsigned long)pressure_data.filtered_counts,
+               (unsigned long)pressure_data.zero_reference_counts,
+               (long)(pressure_data.measured_pressure_mmhg),
+               (long)(abs((int32_t)(pressure_data.measured_pressure_mmhg * 100.0f)) % 100),
+               (long)(pressure_data.pressure_mmhg),
+               (long)(abs((int32_t)(pressure_data.pressure_mmhg * 100.0f)) % 100),
+               (unsigned int)pressure_data.last_error);
+    }
+}
+
+static void pressure_i2c_scan_once(void)
+{
+#if defined(SWM34SVET6_A3)
+    uint8_t addr;
+    bool found = false;
+
+    if(s_pressure_i2c_scan_done) {
+        return;
+    }
+    s_pressure_i2c_scan_done = true;
+
+    printf("[pressure] scan i2c1 on PA6/PA7, watching 0x18 / 0x70 / 0x71\r\n");
     for(addr = 0x08U; addr < 0x78U; addr++) {
         if(dev_i2c1_sensor_probe(addr)) {
             printf("[pressure] i2c1 ack at 0x%02X\r\n", (unsigned int)addr);
@@ -619,7 +1381,7 @@ void app_ready(void)
     lvgl_layer_init();
     
     bootscreen_cleanup();
-    pressure_display_init();
+    pressure_ui_init();
     pressure_display_update(true);  //切换到lvgl显存后，再释放动画显存
 }
 

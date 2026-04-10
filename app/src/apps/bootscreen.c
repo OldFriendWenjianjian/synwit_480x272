@@ -15,6 +15,155 @@
 
 static void *splash_buf = NULL; // 开机LOGO/开机动画显存指针
 
+#if 0
+static void bootsplash_refr(int to_x1, int to_x2, int to_y1, int to_y2, lv_color_t *fb);
+
+static void bootscreen_fill(lv_color_t *fb, uint32_t count, lv_color_t color)
+{
+    uint32_t i;
+
+    for(i = 0U; i < count; i++) {
+        fb[i] = color;
+    }
+}
+
+static void bootscreen_fill_rect(lv_color_t *fb,
+                                 int width,
+                                 int height,
+                                 int x,
+                                 int y,
+                                 int rect_w,
+                                 int rect_h,
+                                 lv_color_t color)
+{
+    int row;
+    int col;
+    int x_start = (x < 0) ? 0 : x;
+    int y_start = (y < 0) ? 0 : y;
+    int x_end = x + rect_w;
+    int y_end = y + rect_h;
+
+    if(x_end > width) {
+        x_end = width;
+    }
+    if(y_end > height) {
+        y_end = height;
+    }
+
+    for(row = y_start; row < y_end; row++) {
+        for(col = x_start; col < x_end; col++) {
+            fb[row * width + col] = color;
+        }
+    }
+}
+
+static const uint8_t *bootscreen_get_glyph(char ch)
+{
+    static const uint8_t glyph_space[7] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    static const uint8_t glyph_O[7] = {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E};
+    static const uint8_t glyph_P[7] = {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10};
+    static const uint8_t glyph_E[7] = {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F};
+    static const uint8_t glyph_N[7] = {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11};
+    static const uint8_t glyph_H[7] = {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11};
+    static const uint8_t glyph_A[7] = {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11};
+    static const uint8_t glyph_R[7] = {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11};
+    static const uint8_t glyph_M[7] = {0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11};
+    static const uint8_t glyph_Y[7] = {0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04};
+
+    switch(ch) {
+    case 'O': return glyph_O;
+    case 'P': return glyph_P;
+    case 'E': return glyph_E;
+    case 'N': return glyph_N;
+    case 'H': return glyph_H;
+    case 'A': return glyph_A;
+    case 'R': return glyph_R;
+    case 'M': return glyph_M;
+    case 'Y': return glyph_Y;
+    case ' ':
+    default:
+        return glyph_space;
+    }
+}
+
+static void bootscreen_draw_text(lv_color_t *fb,
+                                 int width,
+                                 int height,
+                                 int x,
+                                 int y,
+                                 int scale,
+                                 const char *text,
+                                 lv_color_t color)
+{
+    int cursor_x = x;
+
+    while((*text != '\0') && (scale > 0)) {
+        const uint8_t *glyph = bootscreen_get_glyph(*text);
+        int row;
+        int col;
+
+        for(row = 0; row < 7; row++) {
+            for(col = 0; col < 5; col++) {
+                if((glyph[row] & (uint8_t)(1U << (4 - col))) != 0U) {
+                    bootscreen_fill_rect(fb,
+                                         width,
+                                         height,
+                                         cursor_x + col * scale,
+                                         y + row * scale,
+                                         scale,
+                                         scale,
+                                         color);
+                }
+            }
+        }
+
+        cursor_x += 6 * scale;
+        text++;
+    }
+}
+
+static void bootscreen_show_fullscreen(int hres, int vres)
+{
+    LCD_LayerInitStructure LCD_layerInitStruct;
+
+    LCD_layerInitStruct.Alpha = 0xFF;
+    LCD_layerInitStruct.HStart = 0;
+    LCD_layerInitStruct.HStop = hres - 1;
+    LCD_layerInitStruct.VStart = 0;
+    LCD_layerInitStruct.VStop = vres - 1;
+    LCD_layerInitStruct.DataSource = (uint32_t)splash_buf;
+    LCD_LayerInit(LCD, LCD_LAYER_1, &LCD_layerInitStruct);
+
+    if(flag_rgb_initialized == 0) {
+        flag_rgb_initialized = 1;
+        lcdc_start();
+    }
+
+    bootsplash_refr(0, hres - 1, 0, vres - 1, (lv_color_t *)splash_buf);
+    lcd_backlight_on();
+}
+
+static void bootscreen_show_openharmony(int hres, int vres)
+{
+    lv_color_t bg = LV_COLOR_MAKE(0x09, 0x12, 0x1F);
+    lv_color_t accent = LV_COLOR_MAKE(0x2B, 0x7D, 0xFF);
+    lv_color_t accent_soft = LV_COLOR_MAKE(0x66, 0xA8, 0xFF);
+    lv_color_t text = LV_COLOR_MAKE(0xF3, 0xF8, 0xFF);
+    int text_scale = 4;
+    int text_width = (int)(strlen("OPENHARMONY")) * 6 * text_scale;
+    int text_x = (hres - text_width) / 2;
+
+    bootscreen_fill((lv_color_t *)splash_buf, (uint32_t)(hres * vres), bg);
+    bootscreen_fill_rect((lv_color_t *)splash_buf, hres, vres, 64, 42, hres - 128, 8, accent);
+    bootscreen_fill_rect((lv_color_t *)splash_buf, hres, vres, 120, 58, hres - 240, 6, accent_soft);
+    bootscreen_fill_rect((lv_color_t *)splash_buf, hres, vres, 144, 188, hres - 288, 6, accent_soft);
+    bootscreen_fill_rect((lv_color_t *)splash_buf, hres, vres, 88, 204, hres - 176, 8, accent);
+    bootscreen_draw_text((lv_color_t *)splash_buf, hres, vres, text_x, 92, text_scale, "OPENHARMONY", text);
+    bootscreen_show_fullscreen(hres, vres);
+    swm_delay_ms(800);
+}
+
+#endif
 static void bootsplash_refr(int to_x1, int to_x2, int to_y1, int to_y2, lv_color_t *fb)
 {
     if(lcdc_get_drive_mode() == LCDC_DRIVE_MODE_MPU) {
@@ -38,7 +187,7 @@ void bootscreen(int hres, int vres)
     if(splash_buf == NULL) {
         return;
     }
-    
+
     jpeg_outset_t jpeg_outset;
 #if  LV_COLOR_DEPTH == 32
     jpeg_outset.format = JPEG_OUT_XRGB888;
